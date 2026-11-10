@@ -1,10 +1,10 @@
-/// <reference path="../pb_data/types.d.ts" />
+﻿/// <reference path="../pb_data/types.d.ts" />
 /**
  * Initial FieldOps schema for PocketBase 0.22.x.
  * Mirrors legacy GAS sheets (see SCHEMA_MAPPING.md) plus the new
  * job_card_holds / capa_records collections required by the platform brief.
  *
- * WARNING — DEMO RULES: to let the GitHub Pages test frontend talk to the API
+ * WARNING â€” DEMO RULES: to let the GitHub Pages test frontend talk to the API
  * directly, operational collections are open. `users` stays locked and is
  * only reachable through /api/fieldops/* routes. Before production, replace
  * every null rule below with scope-aware rules (SELF/HUB/REGION/ALL).
@@ -26,10 +26,6 @@ migrate((db) => {
   const J = (name) => ({ name, type: "json", required: false, unique: false, options: { maxSize: 2000000 } });
   const F = (name, maxSelect) => ({ name, type: "file", required: false, unique: false, options: { maxSelect: maxSelect || 1, maxSize: 10485760, mimeTypes: ["image/jpeg", "image/png"] } });
   const R = (name, collectionId, required) => ({ name, type: "relation", required: !!required, unique: false, options: { collectionId, cascadeDelete: false, minSelect: 0, maxSelect: 1 } });
-  const AUTODATE = [
-    { name: "created", type: "autodate", required: false, unique: false, options: { onCreate: true, onUpdate: false } },
-    { name: "updated", type: "autodate", required: false, unique: false, options: { onCreate: true, onUpdate: true } }
-  ];
 
   const IDs = {
     companies: "companies000000",
@@ -62,31 +58,42 @@ migrate((db) => {
 
   const save = (name, id, schema, rules, opts) => {
     const c = new Collection(Object.assign({
-      id, name, type: "base", system: false, schema,
-      indexes: []
+      id, name, type: "base", system: false
     }, DEMO_OPEN, opts || {}, rules || {}));
+    for (let i = 0; i < schema.length; i++) {
+      c.schema.addField(new SchemaField(Object.assign({}, schema[i], { unique: false })));
+    }
     dao.saveCollection(c);
   };
 
+  // PocketBase ships a default auth collection named "users" on fresh
+  // databases; FieldOps owns "users", so the stock one goes first.
+  try {
+    const stockUsers = dao.findCollectionByNameOrId("users");
+    if (stockUsers && stockUsers.id !== IDs.users) {
+      dao.deleteCollection(stockUsers);
+    }
+  } catch (err) { /* not present */ }
+
   save("companies", IDs.companies, [
-    T("name", true), N("seat_limit"), S("status", ["Active", "Suspended", "Expired"]), ...AUTODATE
+    T("name", true), N("seat_limit"), S("status", ["Active", "Suspended", "Expired"])
   ]);
 
   save("regions", IDs.regions, [
-    R("company_id", IDs.companies, true), T("region_code"), T("name", true), T("notes"), B("active"), ...AUTODATE
+    R("company_id", IDs.companies, true), T("region_code"), T("name", true), T("notes"), B("active")
   ]);
 
   save("service_hubs", IDs.hubs, [
     R("company_id", IDs.companies, true), T("hub_code"), T("name", true),
     R("region_id", IDs.regions), N("latitude"), N("longitude"),
-    N("radius_meters"), B("allow_roaming"), B("active"), ...AUTODATE
+    N("radius_meters"), B("allow_roaming"), B("active")
   ]);
 
   save("clients", IDs.clients, [
     R("company_id", IDs.companies, true), T("client_code"), T("name", true),
     R("hub_id", IDs.hubs), R("region_id", IDs.regions), T("address"),
     N("latitude"), N("longitude"), T("contact_name"), T("contact_phone"),
-    B("active"), ...AUTODATE
+    B("active")
   ]);
 
   save("users", IDs.users, [
@@ -96,7 +103,7 @@ migrate((db) => {
     T("work_mode"), T("shift_start"), T("shift_end"), T("module_rights"), T("phone_number"),
     T("reports_to"), S("scope", ["SELF", "HUB", "REGION", "ALL"]), B("allow_self_reset"),
     T("capability"), D("last_login"), T("active_device_uuid"), T("active_session_token"),
-    N("session_expiry"), D("check_in_at"), T("check_in_proof"), T("check_in_session"), ...AUTODATE
+    N("session_expiry"), D("check_in_at"), T("check_in_proof"), T("check_in_session")
   ], LOCKED);
 
   save("vehicles", IDs.vehicles, [
@@ -105,7 +112,7 @@ migrate((db) => {
     S("status", ["Active", "Idle", "OutOfZone", "Unknown", "Archived"]),
     N("last_seen_lat"), N("last_seen_lng"), D("last_seen_at"), T("anomaly_flags"),
     T("source"), N("ocr_confidence"), T("notes"), B("active"),
-    T("fiscal_year"), ...AUTODATE
+    T("fiscal_year")
   ]);
 
   save("attendance", IDs.attendance, [
@@ -115,14 +122,14 @@ migrate((db) => {
     T("hub_name"), F("photo_proof"), T("device_uuid"), T("session_id"), N("gps_accuracy_meters"),
     B("is_mock_provider"), T("client_request_id"), T("notes"), N("distance_from_hub_meters"),
     S("status", ["Verified", "Verified_Roaming", "Rejected_Geofence", "Rejected_Mock", "Rejected_Accuracy"]),
-    T("fiscal_year"), ...AUTODATE
+    T("fiscal_year")
   ], { listRule: "" });
 
   save("captures", IDs.captures, [
     R("company_id", IDs.companies, true), T("capture_code"), R("user_id", IDs.users),
     T("device_uuid"), T("plate_no"), T("plate_raw"), N("confidence"),
     S("source", ["OCR", "MANUAL"]), D("captured_at"), R("job_card_id", IDs.jobCards),
-    F("photo"), T("anomaly_flags"), T("client_request_id"), T("fiscal_year"), ...AUTODATE
+    F("photo"), T("anomaly_flags"), T("client_request_id"), T("fiscal_year")
   ]);
 
   save("job_cards", IDs.jobCards, [
@@ -136,55 +143,55 @@ migrate((db) => {
     T("plate_source"), N("ocr_confidence"), T("delay_category"), T("delay_reason"),
     T("interrupted_reason"), T("resumed_from"), D("overtime_alerted_at"), T("client_request_id"),
     N("gross_tat_minutes"), N("total_hold_minutes"), N("active_wrench_minutes"), N("total_downtime_minutes"),
-    T("fiscal_year"), ...AUTODATE
+    T("fiscal_year")
   ]);
 
   save("job_card_holds", IDs.holds, [
     R("job_card_id", IDs.jobCards, true),
     S("reason", ["WAITING_FOR_SPARES", "WAITING_APPROVAL", "FACILITY_LIMITATION"], true),
-    T("notes"), D("held_at"), D("resumed_at"), N("duration_minutes"), ...AUTODATE
+    T("notes"), D("held_at"), D("resumed_at"), N("duration_minutes")
   ]);
 
   save("capa_records", IDs.capa, [
     R("job_card_id", IDs.jobCards, true), T("root_cause"), T("corrective_action"),
     T("preventive_action"), R("verified_by", IDs.users),
-    S("status", ["OPEN", "RESOLVED", "CLOSED"]), ...AUTODATE
+    S("status", ["OPEN", "RESOLVED", "CLOSED"])
   ]);
 
   save("telemetry", IDs.telemetry, [
     R("company_id", IDs.companies, true), R("user_id", IDs.users), T("device_uuid"),
     D("timestamp"), N("latitude"), N("longitude"), N("accuracy_meters"), N("distance_meters"),
     T("zone"), N("battery_pct"), B("is_mock_provider"), T("source"), T("client_request_id"),
-    T("fiscal_year"), ...AUTODATE
+    T("fiscal_year")
   ]);
 
   save("audit_logs", IDs.audit, [
     R("company_id", IDs.companies), D("timestamp"), R("user_id", IDs.users),
-    T("activity_type"), T("details"), B("disruption_flag"), T("fiscal_year"), ...AUTODATE
+    T("activity_type"), T("details"), B("disruption_flag"), T("fiscal_year")
   ]);
 
   save("settings", IDs.settings, [
-    R("company_id", IDs.companies), T("key", true), T("value"), ...AUTODATE
+    R("company_id", IDs.companies), T("key", true), T("value")
   ]);
 
   save("workflows", IDs.workflows, [
     R("company_id", IDs.companies), T("doc_code"), T("title"), T("category"), T("content"),
-    T("min_role"), T("commercial_details"), ...AUTODATE
+    T("min_role"), T("commercial_details")
   ]);
 
   save("forms_registry", IDs.forms, [
     R("company_id", IDs.companies), T("form_code"), T("form_name"), T("field_key"), T("label"),
-    T("control_type"), T("validation_regex"), T("options"), T("min_role"), ...AUTODATE
+    T("control_type"), T("validation_regex"), T("options"), T("min_role")
   ]);
 
   save("reminders", IDs.reminders, [
     R("company_id", IDs.companies), R("user_id", IDs.users), T("title"), T("note"),
-    D("reminder_at"), S("status", ["Pending", "Done", "Dismissed"]), ...AUTODATE
+    D("reminder_at"), S("status", ["Pending", "Done", "Dismissed"])
   ]);
 
   save("reminder_logs", IDs.reminderLogs, [
     R("company_id", IDs.companies), R("reminder_id", IDs.reminders), R("user_id", IDs.users),
-    T("action"), T("note"), D("timestamp"), ...AUTODATE
+    T("action"), T("note"), D("timestamp")
   ]);
 }, (db) => {
   const dao = new Dao(db);
@@ -196,3 +203,4 @@ migrate((db) => {
     try { dao.deleteCollection(dao.findCollectionByNameOrId(name)); } catch (e) { /* ignore */ }
   });
 });
+

@@ -64,7 +64,7 @@ migrate((db) => {
   const seeds = [
     { code: "admin-0001", username: "admin", hash: "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918", role: "Administrator", scope: "ALL", rights: "ALL" },
     { code: "mod-0002", username: "mod", hash: "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", role: "Moderator", scope: "ALL", rights: "Tasks,Attendance,Vehicles,Reports,Audit,Forms" },
-    { code: "user-0003", username: "user1", hash: "4813494d137e1634bba304d5adb368131e3fb9099479d39b8a9b7101700abb7f", role: "Technician", scope: "SELF", rights: "Tasks,Attendance,Vehicles" }
+    { code: "user-0003", username: "user1", hash: "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8", role: "Technician", scope: "SELF", rights: "Tasks,Attendance,Vehicles" }
   ];
   for (let i = 0; i < seeds.length; i++) {
     const s = seeds[i];
