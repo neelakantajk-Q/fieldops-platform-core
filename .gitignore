@@ -1,0 +1,27 @@
+# PocketBase runtime data (never commit)
+pb_data/
+*.db
+*.db-shm
+*.db-wal
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Build outputs
+app/build/
+app/.gradle/
+app/.dart_tool/
+app/build.apk
+*.apk
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local env / secrets
+.env
+*.local
+
+# Frontend lives in its own git repo (fieldops-portal-react)
+web-client/

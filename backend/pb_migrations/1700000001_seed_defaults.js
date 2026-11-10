@@ -1,0 +1,115 @@
+/// <reference path="../pb_data/types.d.ts" />
+/**
+ * Seed default tenant, hub, admin/mod/user accounts and settings.
+ * Runs once after the schema migration. Idempotent: skips if already seeded.
+ *
+ * Legacy-compatible SHA-256 hashes:
+ *   admin  / admin
+ *   mod    / 1
+ *   user1  / password
+ */
+migrate((db) => {
+  const dao = new Dao(db);
+
+  // --- company ---
+  const companies = dao.findCollectionByNameOrId("companies");
+  let company = null;
+  const existing = dao.findRecordsByExpr("companies", $dbx.exp("name = {:n}", { n: "OpenCode Enterprise" }));
+  if (existing.length) {
+    company = existing[0];
+  } else {
+    company = new Record(companies);
+    company.set("name", "OpenCode Enterprise");
+    company.set("seat_limit", 50);
+    company.set("status", "Active");
+    dao.saveRecord(company);
+  }
+
+  // --- regions / hub ---
+  const regionsCol = dao.findCollectionByNameOrId("regions");
+  let region = null;
+  const regionFound = dao.findRecordsByExpr("regions", $dbx.exp("name = {:n}", { n: "North" }));
+  if (regionFound.length) {
+    region = regionFound[0];
+  } else {
+    region = new Record(regionsCol);
+    region.set("company_id", company.id);
+    region.set("region_code", "REG-0001");
+    region.set("name", "North");
+    region.set("active", true);
+    dao.saveRecord(region);
+  }
+
+  const hubsCol = dao.findCollectionByNameOrId("service_hubs");
+  let hub = null;
+  const hubFound = dao.findRecordsByExpr("service_hubs", $dbx.exp("name = {:n}", { n: "HQ Central Hub" }));
+  if (hubFound.length) {
+    hub = hubFound[0];
+  } else {
+    hub = new Record(hubsCol);
+    hub.set("company_id", company.id);
+    hub.set("hub_code", "HUB-0001");
+    hub.set("name", "HQ Central Hub");
+    hub.set("region_id", region.id);
+    hub.set("latitude", 17.5181);
+    hub.set("longitude", 78.1685);
+    hub.set("radius_meters", 800);
+    hub.set("allow_roaming", false);
+    hub.set("active", true);
+    dao.saveRecord(hub);
+  }
+
+  // --- users ---
+  const usersCol = dao.findCollectionByNameOrId("users");
+  const seeds = [
+    { code: "admin-0001", username: "admin", hash: "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918", role: "Administrator", scope: "ALL", rights: "ALL" },
+    { code: "mod-0002", username: "mod", hash: "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b", role: "Moderator", scope: "ALL", rights: "Tasks,Attendance,Vehicles,Reports,Audit,Forms" },
+    { code: "user-0003", username: "user1", hash: "4813494d137e1634bba304d5adb368131e3fb9099479d39b8a9b7101700abb7f", role: "Technician", scope: "SELF", rights: "Tasks,Attendance,Vehicles" }
+  ];
+  for (let i = 0; i < seeds.length; i++) {
+    const s = seeds[i];
+    if (dao.findRecordsByExpr("users", $dbx.exp("username = {:u}", { u: s.username })).length) continue;
+    const u = new Record(usersCol);
+    u.set("company_id", company.id);
+    u.set("user_code", s.code);
+    u.set("username", s.username);
+    u.set("password_hash", s.hash);
+    u.set("role", s.role);
+    u.set("status", "Active");
+    u.set("hub_id", hub.id);
+    u.set("region_id", region.id);
+    u.set("module_rights", s.rights);
+    u.set("scope", s.scope);
+    u.set("allow_self_reset", true);
+    dao.saveRecord(u);
+  }
+
+  // --- settings (singleton defaults per company) ---
+  const settingsCol = dao.findCollectionByNameOrId("settings");
+  const defaults = {
+    plate_format: "compact",
+    realtime_enabled: "false",
+    sync_push_enabled: "true",
+    current_fy: "FY" + new Date().getFullYear(),
+    geofence_radius_meters: "800",
+    geofence_buffer_meters: "300",
+    telemetry_push_minutes: "30",
+    max_users: "50",
+    api_endpoint: "",
+    asset_base: "",
+    splash_message: "Loading Field Operations & HRMS Portal...",
+    splash_animation: "anim-breathing"
+  };
+  Object.keys(defaults).forEach((key) => {
+    const found = dao.findRecordsByExpr("settings",
+      $dbx.exp("company_id = {:c} AND key = {:k}", { c: company.id, k: key }));
+    if (found.length) return;
+    const row = new Record(settingsCol);
+    row.set("company_id", company.id);
+    row.set("key", key);
+    row.set("value", defaults[key]);
+    dao.saveRecord(row);
+  });
+}, (db) => {
+  // Nothing to revert: seed data is intentionally left in place.
+});
