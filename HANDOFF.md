@@ -107,6 +107,11 @@ is committed at `graphify-out/` (820 nodes / 1881 edges: web client, backend,
 tests, Android app, hook shims). Query it first (§9). Read `HANDOFF.md` +
 `graphify-out/GRAPH_REPORT.md`, then open only the files a query points to.
 
+**2026-11-12 plan:** see `NEXT_SESSION.md` — it records the verified state,
+the locked requirements (hierarchical peer notifications, 30-min telemetry +
+sync-now, external image storage, escalation, Google-Sheets cold archive),
+the design, the open questions, the implementation order, and resume commands.
+
 ### W1 (RESOLVED 2026-11-11) — Cloud admin auth returned 400 "Failed to authenticate"
 Root cause: the cloud instance's `admins` table was **empty**. PocketBase Cloud's
 `pbc pocketbase superuser sync` only updates the platform-side record + the

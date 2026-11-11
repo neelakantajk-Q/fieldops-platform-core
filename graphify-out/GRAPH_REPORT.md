@@ -1,15 +1,17 @@
 # Graph Report - fieldops-platform-core  (2026-11-11)
 
 ## Corpus Check
-- cluster-only mode — file stats not available
+- 102 files · ~68,081 words
+- Verdict: corpus is large enough that graph structure adds value.
+- Unclassified: 21 file(s) not represented in the graph (top: .xml 9, (none) 5, .properties 2)
 
 ## Summary
-- 820 nodes · 1881 edges · 62 communities (32 shown, 30 thin omitted)
+- 819 nodes · 1878 edges · 68 communities (30 shown, 38 thin omitted)
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 89 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `ab450348`
+- Built from commit: `fada6510`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -20,10 +22,10 @@
 - Notify.kt
 - Utils.js
 - CameraOcrActivity.kt
-- deploy.yml
+- with
 - Router.js
-- MainActivity.kt
-- OverlayBubbleService.kt
+- MainActivity
+- OverlayBubbleService
 - api_fieldops.js
 - Repo.js
 - Masters.js
@@ -55,6 +57,10 @@
 - api_fieldops.pb.js
 - runFinancialClosing_
 - deploy_oci.sh
+- GeofenceReceiver.kt
+- LoginActivity.kt
+- GeofenceService
+- Watermark.kt
 
 ## God Nodes (most connected - your core abstractions)
 1. `call()` - 56 edges
@@ -83,7 +89,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (62 total, 30 thin omitted)
+## Communities (68 total, 38 thin omitted)
 
 ### Community 0 - "call"
 Cohesion: 0.09
@@ -101,21 +107,13 @@ Nodes (4): FieldOpsApp, Notify, Prefs, RoamingActionReceiver
 Cohesion: 0.10
 Nodes (19): appError_(), bool_(), boolText_(), bytesToHex_(), constantEquals_(), createJsonResponse(), error_(), fiscalYear_() (+11 more)
 
-### Community 5 - "CameraOcrActivity.kt"
-Cohesion: 0.08
-Nodes (3): CameraOcrActivity, OnImageSavedCallback, Watermark
-
-### Community 6 - "deploy.yml"
+### Community 6 - "with"
 Cohesion: 0.07
-Nodes (30): runs-on, steps, concurrency, cancel-in-progress, group, environment, needs, runs-on (+22 more)
+Nodes (28): defaults, env, runs-on, steps, run, VITE_API_BASE_URL, jobs, build (+20 more)
 
 ### Community 7 - "Router.js"
-Cohesion: 0.14
-Nodes (18): getAnalyticsData_(), getAuditLogsList_(), getWorkflowsList_(), handleRequest_(), setupAction_(), setupAllStores(), toErrorResponse_(), bootstrap_() (+10 more)
-
-### Community 8 - "MainActivity.kt"
-Cohesion: 0.06
-Nodes (4): GeofenceReceiver, GeofenceService, GeoMath, MainActivity
+Cohesion: 0.15
+Nodes (17): getAnalyticsData_(), getAuditLogsList_(), getWorkflowsList_(), handleRequest_(), setupAction_(), setupAllStores(), toErrorResponse_(), bootstrap_() (+9 more)
 
 ### Community 11 - "Repo.js"
 Cohesion: 0.17
@@ -150,8 +148,8 @@ Cohesion: 0.23
 Nodes (15): attendanceCheckIn_(), attendanceCheckOut_(), attendanceRow_(), attendanceToJson_(), canSeePerson_(), getAttendance_(), getOrgTree_(), sortTree() (+7 more)
 
 ### Community 19 - "Vehicles.js"
-Cohesion: 0.28
-Nodes (15): captureFeed_(), captureRow_(), capturesForPlate_(), captureToJson_(), countOpenJobsForPlate_(), findVehicleRow_(), openJobPlateMismatch_(), recordCapture_() (+7 more)
+Cohesion: 0.25
+Nodes (16): captureFeed_(), captureRow_(), capturesForPlate_(), captureToJson_(), countOpenJobsForPlate_(), findVehicleRow_(), linkCaptureToJob_(), openJobPlateMismatch_() (+8 more)
 
 ### Community 20 - "App.js"
 Cohesion: 0.13
@@ -214,7 +212,7 @@ Cohesion: 0.67
 Nodes (3): api(), BASE, main()
 
 ## Knowledge Gaps
-- **30 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **38 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -225,11 +223,11 @@ _Questions this graph is uniquely positioned to answer:_
   _`Api` has 15 INFERRED edges - model-reasoned connections that need verification._
 - **Should `call` be split into smaller, more focused modules?**
   _Cohesion score 0.08655083655083655 - nodes in this community are weakly interconnected._
-- **Why does `Api` connect `Api` to `MainActivity.kt`, `OverlayBubbleService.kt`, `Notify.kt`, `CameraOcrActivity.kt`?**
+- **Why does `Api` connect `Api` to `LoginActivity.kt`, `Notify.kt`, `CameraOcrActivity.kt`, `MainActivity`, `OverlayBubbleService`, `GeofenceReceiver.kt`?**
   _High betweenness centrality (0.026) - this node is a cross-community bridge._
 - **Should `pb.js` be split into smaller, more focused modules?**
   _Cohesion score 0.08144796380090498 - nodes in this community are weakly interconnected._
 - **Why does `call()` connect `call` to `pb.js`?**
-  _High betweenness centrality (0.013) - this node is a cross-community bridge._
+  _High betweenness centrality (0.014) - this node is a cross-community bridge._
 - **Should `Api` be split into smaller, more focused modules?**
   _Cohesion score 0.14268292682926828 - nodes in this community are weakly interconnected._

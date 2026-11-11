@@ -210,10 +210,10 @@
     "semantic_hash": "7a123200316a681f4a92d863041eb28c"
   },
   "backend/pb_hooks/mobile_api.pb.js": {
-    "mtime": 1794366517.810676,
-    "seen": 1794402421.0544283,
-    "ast_hash": "2b8d2f1870627786438dba2d3d73d820",
-    "semantic_hash": "2b8d2f1870627786438dba2d3d73d820"
+    "mtime": 1794415436.6552005,
+    "seen": 1794418732.7651339,
+    "ast_hash": "018874cd7f06896b53e0647357ff205f",
+    "semantic_hash": ""
   },
   "backend/pb_hooks/seat_limit.pb.js": {
     "mtime": 1794358872.6426847,
@@ -246,11 +246,10 @@
     "semantic_hash": "4e26059190b065b42707a28d9233a727"
   },
   "backend/pbc.json": {
-    "mtime": 1794364350.2650142,
-    "seen": 1794402421.0700543,
-    "ast_hash": "c21e55af53d9a78c9888d1955264efdf",
-    "semantic_hash": "c21e55af53d9a78c9888d1955264efdf",
-    "ast_empty": true
+    "mtime": 1794415408.7820525,
+    "seen": 1794418732.7651339,
+    "ast_hash": "d07211ca232da0ecbf3292e17e63397d",
+    "semantic_hash": ""
   },
   "backend/seed_schema.js": {
     "mtime": 1794364409.7582312,
@@ -385,10 +384,10 @@
     "semantic_hash": "3ccdea94d6960546b4337c82efb456e0"
   },
   "scripts/deploy_backend_cloud.ps1": {
-    "mtime": 1794367896.4829345,
-    "seen": 1794402421.0700543,
-    "ast_hash": "651d75024e9c7e054a38872869962928",
-    "semantic_hash": "651d75024e9c7e054a38872869962928"
+    "mtime": 1794415585.129912,
+    "seen": 1794418732.7651339,
+    "ast_hash": "bbd754a6e37c1d4705c190026d2c44ce",
+    "semantic_hash": ""
   },
   "scripts/run_local_tests.ps1": {
     "mtime": 1794367904.732367,
@@ -397,10 +396,10 @@
     "semantic_hash": "d255e298a1262eb64d26abff8d736778"
   },
   "scripts/setup_new_device.ps1": {
-    "mtime": 1794367882.7182326,
-    "seen": 1794402421.0700543,
-    "ast_hash": "3696a9bf87f8a032d6ca4fb622ef7515",
-    "semantic_hash": "3696a9bf87f8a032d6ca4fb622ef7515"
+    "mtime": 1794402585.794459,
+    "seen": 1794418732.7651339,
+    "ast_hash": "889126fb09e5fc245b3bc6d1f636bbda",
+    "semantic_hash": ""
   },
   "tests/test_e2e.js": {
     "mtime": 1794357710.7623336,
@@ -419,12 +418,6 @@
     "seen": 1794402421.0700543,
     "ast_hash": "2f6495d9d4edda4347e4e56bdf38b0fd",
     "semantic_hash": "2f6495d9d4edda4347e4e56bdf38b0fd"
-  },
-  "web-client/.github/workflows/deploy.yml": {
-    "mtime": 1794331362.4505184,
-    "seen": 1794402421.0700543,
-    "ast_hash": "8bd4cee03973239b04afd53d86781f4b",
-    "semantic_hash": "8bd4cee03973239b04afd53d86781f4b"
   },
   "web-client/package.json": {
     "mtime": 1794329973.603715,
@@ -583,9 +576,9 @@
     "semantic_hash": ""
   },
   "graphify-shims/mobile_api.js": {
-    "mtime": 1794366517.810676,
-    "seen": 1794402532.5827074,
-    "ast_hash": "2b8d2f1870627786438dba2d3d73d820",
+    "mtime": 1794415436.6552005,
+    "seen": 1794418752.9749532,
+    "ast_hash": "018874cd7f06896b53e0647357ff205f",
     "semantic_hash": ""
   },
   "graphify-shims/seat_limit.js": {
@@ -595,21 +588,21 @@
     "semantic_hash": ""
   },
   "scripts/sync_graph_shims.ps1": {
-    "mtime": 1794402514.0524561,
-    "seen": 1794402532.5827074,
-    "ast_hash": "8789a7791132388c6479bced017fdf3a",
+    "mtime": 1794418740.5826278,
+    "seen": 1794418752.9749532,
+    "ast_hash": "720844e1955c8b2a1093ca36d0770677",
     "semantic_hash": ""
   },
   "HANDOFF.md": {
-    "mtime": 1794368034.6910114,
-    "seen": 1794402532.5827074,
-    "ast_hash": "27a2f9238124897b12ffa1d379d0fb1a",
+    "mtime": 1794418697.4550228,
+    "seen": 1794418732.7651339,
+    "ast_hash": "88fe0633c677acb9b38126d2c5a7860d",
     "semantic_hash": ""
   },
   "KEYS_AND_ACCESS.md": {
-    "mtime": 1794367820.3322864,
-    "seen": 1794402532.5827074,
-    "ast_hash": "c1059b313c922a9e74e57dfeed5224ce",
+    "mtime": 1794416059.4523416,
+    "seen": 1794418732.7651339,
+    "ast_hash": "53a140926d4beab311ef89958f749c9b",
     "semantic_hash": ""
   },
   "SCHEMA_MAPPING.md": {
@@ -634,6 +627,30 @@
     "mtime": 1794329983.0874043,
     "seen": 1794402532.5827074,
     "ast_hash": "818688f6f2fd2c1653af05afca4f64e1",
+    "semantic_hash": ""
+  },
+  ".github/workflows/web-client.yml": {
+    "mtime": 1794416008.239789,
+    "seen": 1794418732.7651339,
+    "ast_hash": "90fd2252d72a7d0017f3e8bafde7be44",
+    "semantic_hash": ""
+  },
+  "scripts/deploy_frontend_cloud.ps1": {
+    "mtime": 1794416013.1613579,
+    "seen": 1794418732.7651339,
+    "ast_hash": "86e40b4f3f3346910e95799916ccca12",
+    "semantic_hash": ""
+  },
+  "web-client/pbc.json": {
+    "mtime": 1794415850.652573,
+    "seen": 1794418732.7651339,
+    "ast_hash": "d3d3ca6cbe869c7f49dcfc442d4dd2ec",
+    "semantic_hash": ""
+  },
+  "NEXT_SESSION.md": {
+    "mtime": 1794418692.6116,
+    "seen": 1794418732.7651339,
+    "ast_hash": "1a1a110839b9e096b4f2101710d8facf",
     "semantic_hash": ""
   },
   "web-client/package-lock.json": {
