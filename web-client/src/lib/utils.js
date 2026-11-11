@@ -165,16 +165,38 @@ export async function preparePhoto(file, fullMax = 1024, fullQ = 0.72) {
   return { full: toData(fullMax, fullQ), thumb: toData(256, 0.5) };
 }
 
+/**
+ * IST helpers — the platform is India-only (admins included), so all captured
+ * timestamps render in Indian Standard Time (UTC+05:30, no DST) regardless of
+ * the viewer's device timezone. Conversion is fixed-offset arithmetic.
+ */
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function istParts(value) {
+  if (!value) return null;
+  const raw = String(value).trim().replace(' ', 'T');
+  const ms = new Date(raw).getTime() + IST_OFFSET_MS;
+  if (!isFinite(ms)) return null;
+  const d = new Date(ms);
+  return {
+    y: d.getUTCFullYear(),
+    m: d.getUTCMonth(),
+    day: d.getUTCDate(),
+    hh: String(d.getUTCHours()).padStart(2, '0'),
+    mm: String(d.getUTCMinutes()).padStart(2, '0'),
+  };
+}
+
 export function todayISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const p = istParts(new Date().toISOString());
+  return `${p.y}-${String(p.m + 1).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
 }
 
 export function timeOnly(value) {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return String(value);
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const p = istParts(value);
+  if (!p) return value ? String(value) : '—';
+  return `${p.hh}:${p.mm}`;
 }
 
 export function minutesToText(minutes) {
@@ -185,13 +207,9 @@ export function minutesToText(minutes) {
 }
 
 export function formatDateTime(value) {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return String(value);
-  return d.toLocaleString(undefined, {
-    year: 'numeric', month: 'short', day: '2-digit',
-    hour: '2-digit', minute: '2-digit'
-  });
+  const p = istParts(value);
+  if (!p) return value ? String(value) : '—';
+  return `${String(p.day).padStart(2, '0')} ${MONTHS_SHORT[p.m]} ${p.y}, ${p.hh}:${p.mm} IST`;
 }
 
 export function minutesBetween(start, end) {

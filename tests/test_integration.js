@@ -93,6 +93,8 @@ async function main() {
     assert(r.status === 200, `expected 200, got ${r.status}: ${JSON.stringify(r.data)}`);
     assert(r.data.status === "Verified", `status=${r.data.status}`);
     assert(Number(r.data.distance_from_hub_meters) < 300, `distance=${r.data.distance_from_hub_meters}`);
+    const istExpected = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
+    assert(r.data.ist_date === istExpected, `ist_date=${r.data.ist_date} expected ${istExpected}`);
   });
 
   await check("2b. Geofence OUT-of-bounds punch rejected 400", async () => {

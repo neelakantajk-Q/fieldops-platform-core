@@ -49,19 +49,6 @@ function esc(v) {
   return String(v == null ? '' : v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-/**
- * Attendance/report day boundaries in IST (UTC+05:30), not UTC.
- * An IST calendar day runs from 18:30Z (previous day) to 18:29:59.999Z,
- * so early-morning IST punches group under the correct local day.
- */
-function istDayBounds(dateStr) {
-  const [y, m, d] = String(dateStr || todayISO()).split('-').map(Number);
-  const offsetMs = 5.5 * 60 * 60 * 1000;
-  const start = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0) - offsetMs);
-  const end = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - offsetMs);
-  return [start.toISOString(), end.toISOString()];
-}
-
 async function list(name, query = {}) {
   const params = new URLSearchParams();
   if (query.filter) params.set('filter', query.filter);
@@ -360,8 +347,11 @@ export async function pbCall(action, payload = {}) {
 
     /* ---- attendance ---- */
     case 'getAttendance': {
-      const [d0, d1] = istDayBounds(payload.date || todayISO());
-      let filter = `timestamp >= "${esc(d0)}" && timestamp <= "${esc(d1)}"`;
+      const date = payload.date || todayISO();
+      // IST day grouping: the server hook stamps ist_date (YYYY-MM-DD in IST,
+      // UTC+05:30) at capture time. Legacy rows without ist_date fall back to
+      // the raw UTC window for that calendar date.
+      let filter = `(ist_date = "${esc(date)}" || (ist_date = "" && timestamp >= "${esc(date)} 00:00:00.000Z" && timestamp <= "${esc(date)} 23:59:59.000Z"))`;
       if (payload.userId) {
         const u = await findUserByName(payload.userId);
         if (u) filter += ` && user_id = "${u.id}"`;
@@ -371,11 +361,11 @@ export async function pbCall(action, payload = {}) {
       for (const r of (res.items || [])) {
         const uid = (r.expand && r.expand.user_id && r.expand.user_id.username) || r.user_id;
         const row = byUser[uid] || (byUser[uid] = {
-          date: (r.timestamp || '').slice(0, 10), userId: uid,
+          date: r.ist_date || (r.timestamp || '').slice(0, 10), userId: uid,
           hubName: r.hub_name || '', checkIn: '', checkOut: '', minutes: 0,
           status: r.status || 'Verified', mock: String(r.status).indexOf('Mock') >= 0
         });
-        const ts = r.timestamp ? new Date(r.timestamp).toISOString() : '';
+        const ts = r.timestamp ? new Date(String(r.timestamp).replace(' ', 'T')).toISOString() : '';
         if (r.action === 'CheckIn' && !row.checkIn) row.checkIn = ts;
         if (r.action === 'CheckOut') row.checkOut = ts;
         if (r.action !== 'CheckIn' && r.action !== 'CheckOut' && row.status.indexOf('Rejected') < 0) {

@@ -37,6 +37,13 @@ onRecordBeforeCreateRequest((e) => {
             throw new BadRequestError("Missing hub_id or GPS coordinates.");
         }
 
+        // ist_date: IST (UTC+05:30, no DST) calendar day of the punch, fixed
+        // server-side so reports group by Indian day regardless of device TZ.
+        const tsRaw = rec.get("timestamp");
+        let tsMs = tsRaw ? new Date(String(tsRaw).trim().replace(" ", "T")).getTime() : Date.now();
+        if (!isFinite(tsMs)) tsMs = Date.now();
+        rec.set("ist_date", new Date(tsMs + 19800000).toISOString().slice(0, 10));
+
         let hub;
         try {
             hub = $app.dao().findRecordById("service_hubs", hubId);
