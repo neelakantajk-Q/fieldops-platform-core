@@ -34,6 +34,14 @@ Usage:
   pbc project use j2nnf0udodj4kuc
   cd backend && pbc pocketbase deploy --name fieldops-db --no-input
 
+## Live frontend (web console, PocketBase Cloud hosting)
+- URL:               https://cj0jzgjbxy8nywl.pwz5.pocketbasecloud.com
+- Frontend name:     fieldops-web
+- Points at (baked): https://wzc6r4fspi7fdd2.pwz5.pocketbasecloud.com
+- Redeploy:          powershell -File scripts\deploy_frontend_cloud.ps1
+- GitHub repo var:   VITE_API_BASE_URL (used by .github/workflows/web-client.yml)
+- Login:             cloud admin/mod/user1 seeded by backend/seed_schema.js
+
 ## Local dev superuser (local pb_data, same creds)
 - itadmin@fieldops.local / FieldOps#2026
 

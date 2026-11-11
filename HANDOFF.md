@@ -136,9 +136,16 @@ activate them — a newly added hook shows blank ACTIVE in
 must read `yes`.
 Remaining W2 sub-task: none.
 
-### W3 — Web client: finish install + roaming card
-`web-client/` npm install was interrupted once; re-run `npm install` then
-`npm run build` and fix any errors. Add a "Transit approvals" card
+### W3 (PARTIAL 2026-11-11) — Web client: live on PocketBase Cloud; roaming card remains
+Built and deployed against the cloud: **https://cj0jzgjbxy8nywl.pwz5.pocketbasecloud.com**
+(frontend `fieldops-web`, deployed with `scripts/deploy_frontend_cloud.ps1`;
+bundle has `VITE_API_BASE_URL` baked = cloud URL; CORS verified `*`; page +
+assets 200 via Cloudflare; API e2e `test_e2e.js` 4/4 against the cloud).
+GitHub integration: repo variable `VITE_API_BASE_URL` + root workflow
+`.github/workflows/web-client.yml` (npm ci → build → asserts the cloud URL is
+baked → uploads artifact). GitHub Pages is NOT usable while the repo is private
+on the free plan, hence pbc frontend hosting is the live target.
+Still to do: add a "Transit approvals" card
 (poll `POST /api/fieldops/roaming-pending` with a sessionToken from
 `/api/fieldops/login`, APPROVE/REJECT buttons → `roaming-approve`) on the
 Attendance or Dashboard page. Also confirm `getAttendance` uses `ist_date`
