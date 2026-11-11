@@ -15,12 +15,16 @@
 - Admin panel:       https://wzc6r4fspi7fdd2.pwz5.pocketbasecloud.com/_/
 - PocketBase pin:    0.22.32 (set in backend/pbc.json)
 
-## Instance superuser (set at deploy; re-synced via `pbc pocketbase superuser sync`)
+## Instance superuser (VERIFIED WORKING 2026-11-11)
 - Email:             itadmin@fieldops.local
 - Password:          FieldOps#2026
-- KNOWN ISSUE: REST auth against the cloud instance returns 400
-  "Failed to authenticate." — see HANDOFF.md § Known issues (W1) for the
-  debugging checklist before trusting these creds on the cloud instance.
+- NOTE: the instance DB's admins table can be EMPTY even though `pbc pocketbase
+  info` shows creds (the platform's managed-superuser sync does not seed the DB).
+  While empty, PB 0.22 permits unauthenticated creation:
+    POST /api/admins {"email":"itadmin@fieldops.local","password":"FieldOps#2026","passwordConfirm":"FieldOps#2026"}
+  Once created, normal auth works (cloud seeded; 8/8 + 13/13 tests green).
+- If creds are lost: delete the admin row from the panel and re-create as above,
+  or use the panel's password reset.
 
 ## pbc CLI access token (portal > Account > CLI access token)
 eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2xsZWN0aW9uSWQiOiJfcGJfdXNlcnNfYXV0aF8iLCJleHAiOjE3OTQ0NTA1NTYsImlkIjoicDJ3ZGgyNzN2ejhhcWJ2IiwicmVmcmVzaGFibGUiOnRydWUsInR5cGUiOiJhdXRoIn0.DoK-bh06VT9oSn0Yg4mgsoh-oOn_r5jOVkvFoBy8eho

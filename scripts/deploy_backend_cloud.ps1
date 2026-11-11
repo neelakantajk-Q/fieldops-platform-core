@@ -18,6 +18,10 @@ if (-not $token) { throw "Paste the pbc token into KEYS_AND_ACCESS.md (line star
 $backend = Join-Path $PSScriptRoot "..\backend"
 Push-Location $backend
 & $pbc pocketbase deploy --name fieldops-db --no-input
+# Deploy uploads NEW hook files but may leave them inactive (blank ACTIVE in
+# `pbc pocketbase hooks ls`, routes 404). Hook push activates every hook.
+& $pbc pocketbase hooks push pb_hooks
+& $pbc pocketbase hooks ls
 Pop-Location
 
 Write-Host "`nDeployed. Instance: https://wzc6r4fspi7fdd2.pwz5.pocketbasecloud.com"

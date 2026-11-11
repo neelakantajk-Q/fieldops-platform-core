@@ -107,34 +107,34 @@ is committed at `graphify-out/` (820 nodes / 1881 edges: web client, backend,
 tests, Android app, hook shims). Query it first (§9). Read `HANDOFF.md` +
 `graphify-out/GRAPH_REPORT.md`, then open only the files a query points to.
 
-### W1 (blocker) — Cloud admin auth returns 400 "Failed to authenticate"
-The cloud instance rejects `/api/admins/auth-with-password` for
-`itadmin@fieldops.local / FieldOps#2026` even though
-`pbc pocketbase superuser sync` reports success and
-`pbc pocketbase info` shows those creds. Local PB auths fine with the same
-code path. Debug checklist:
-1. Wait 10+ minutes (PB brute-force lockout after ~8 failures) and retry ONCE.
-2. Try the portal admin panel at `https://wzc6r4fspi7fdd2.pwz5.pocketbasecloud.com/_/`
-   (human login) — if the panel works but REST 400s, inspect request shape.
-3. Portal → instance → admin credentials → **Reset Password** (needs 12–20
-   chars; e.g. `FieldOps#2026!X`), then re-run `scripts/run_local_tests.ps1`
-   style checks against `PB_URL=https://wzc6r4fspi7fdd2.pwz5.pocketbasecloud.com`.
-4. Nuclear option: delete instance, recreate via
-   `pbc pocketbase deploy --new fieldops-db2 --pb-version 0.22.32
-   --admin-email itadmin@fieldops.local --admin-password '…20 chars…'`,
-   then redeploy backend + seed (`PB_URL=… node backend/seed_schema.js`).
-5. After auth works: run `tests/test_integration.js` + `tests/test_roaming.js`
-   against the cloud URL (set `PB_URL`), then verify seeded data in the panel.
+### W1 (RESOLVED 2026-11-11) — Cloud admin auth returned 400 "Failed to authenticate"
+Root cause: the cloud instance's `admins` table was **empty**. PocketBase Cloud's
+`pbc pocketbase superuser sync` only updates the platform-side record + the
+credentials shown by `pbc pocketbase info`; it never writes a row into the
+instance DB. Wrong-password 400s are therefore expected for every combo.
+Fix that worked: PB 0.22 allows unauthenticated admin creation while the table
+is empty —
+`POST /api/admins {"email":"itadmin@fieldops.local","password":"FieldOps#2026","passwordConfirm":"…"}`
+→ created, then auth + seed + all tests work. If this ever 401s again, the table
+already has an admin (use the panel or `pbc pocketbase superuser sync` +
+instance redeploy). Don't bother with the old debug checklist below.
+Old notes (kept for context):
+1. `superuser sync` "succeeds" but is not authoritative for the instance DB.
+2. Portal panel `/_/` uses the same API — it fails identically while the table is empty.
+3. Do NOT test four cred permutations in a loop and conclude "lockout"; it's a missing row.
 
-### W2 — Deploy the new backend files to the cloud
-`mobile_api.pb.js`, `geofence_check.pb.js` (Geo* bypass + day pass), and
-migration `1700000003_roaming_requests.js` are committed but the cloud
-instance was deployed BEFORE they existed. Run
-`powershell -File scripts/deploy_backend_cloud.ps1` (or portal ZIP upload —
-but note portal upload **ignores pb_hooks**; CLI deploy carries hooks).
-Verify: `POST /api/fieldops/roaming-status` returns 200 shape
-`{success:true, approved:false, pending:false}` (needs a valid sessionToken;
-an empty token returns 401 SESSION_INVALID — that also proves the route lives).
+### W2 (DONE 2026-11-11) — New backend files deployed to the cloud
+Live on `fieldops-db` (`wzc6r4fspi7fdd2`, revision 2): `mobile_api.pb.js`,
+`geofence_check.pb.js` (Geo* bypass + day pass), migration
+`1700000003_roaming_requests.js` (collection verified via 401 on
+`/api/collections/roaming_requests`). Cloud seeded and verified:
+`test_integration.js` **8/8** and `test_roaming.js` **13/13** against the cloud URL.
+IMPORTANT: `pbc pocketbase deploy` uploads new hook files but does **not**
+activate them — a newly added hook shows blank ACTIVE in
+`pbc pocketbase hooks ls` and its routes 404. Run
+`pbc pocketbase hooks push pb_hooks` (or redeploy) to activate; all 5 hooks
+must read `yes`.
+Remaining W2 sub-task: none.
 
 ### W3 — Web client: finish install + roaming card
 `web-client/` npm install was interrupted once; re-run `npm install` then
@@ -259,6 +259,12 @@ Branch with this continuation: `continue/android-overlay-cloud` on top of
 folder (workspace root) — on another machine:
 `git clone fieldops-continue.bundle fieldops-platform-core` then
 `git checkout continue/android-overlay-cloud`.
+
+GitHub (private, pushed 2026-11-11):
+`https://github.com/neelakantajk-Q/fieldops-platform-core`
+Both `main` and `continue/android-overlay-cloud` are on origin. The 48 MB APK
+is inside the repo (under GitHub's 100 MB limit); future release APKs should
+go to GitHub Releases instead.
 
 ## 9. Graphify knowledge graph — query, don't grep
 `graphify-out/` holds a code-only (no LLM/API key needed) knowledge graph of
