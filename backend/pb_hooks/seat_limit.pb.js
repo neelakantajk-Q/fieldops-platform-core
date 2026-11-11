@@ -1,11 +1,16 @@
 /**
- * PocketBase Hook: Enforce the per-company seat limit on user creation.
- * Legacy equivalent: Auth.js `adminCreateUser_` / `seatUsage_` (MaxUsers).
- * Portable across PocketBase 0.22.x JSVM (uses record.get/set + dao.findRecordById).
+ * PocketBase Hook (0.22.x JSVM): Enforce the per-company seat limit on user creation.
+ * Legacy equivalent: Auth.js adminCreateUser_ / seatUsage_ (MaxUsers).
+ *
+ * Uses the v0.22 hook API:
+ *   onRecordBeforeCreateRequest((e) => {...}, "users")
+ *   $app.dao().findRecordById(...)
+ *   $app.dao().findRecordsByFilter(...)
  */
-onRecordCreateRequest((e) => {
-    const companyId = String(e.record.get("company_id") || "");
-    const status = String(e.record.get("status") || "Active");
+onRecordBeforeCreateRequest((e) => {
+    const rec = e.record;
+    const companyId = String(rec.get("company_id") || "");
+    const status = String(rec.get("status") || "Active");
 
     if (!companyId) {
         throw new BadRequestError("User must be assigned to a company.");
@@ -13,7 +18,7 @@ onRecordCreateRequest((e) => {
 
     // Only Active seats count toward the contractual limit.
     if (status !== "Active") {
-        return e.next();
+        return;
     }
 
     let company;
@@ -27,12 +32,17 @@ onRecordCreateRequest((e) => {
 
     let activeUsers = 0;
     try {
-        activeUsers = Number($app.dao().countRecords("users", $dbx.exp(
-            "company_id = {:companyId} AND status = 'Active'",
+        // Fetch at most seatLimit rows; if we get seatLimit back, the cap is hit.
+        const rows = $app.dao().findRecordsByFilter(
+            "users",
+            "company_id = {:companyId} && status = 'Active'",
+            "",
+            seatLimit,
+            0,
             { companyId: companyId }
-        ))) || 0;
+        );
+        activeUsers = rows.length;
     } catch (err) {
-        // If the collection is still empty the count API can ocasionally throw.
         activeUsers = 0;
     }
 
@@ -41,6 +51,4 @@ onRecordCreateRequest((e) => {
             "Seat limit reached: this company already uses all " + seatLimit + " active seats."
         );
     }
-
-    return e.next();
 }, "users");

@@ -1,5 +1,7 @@
 # PocketBase runtime data (never commit)
 pb_data/
+backend/bin/
+backend/pb_*.log
 *.db
 *.db-shm
 *.db-wal
@@ -23,5 +25,4 @@ Thumbs.db
 .env
 *.local
 
-# Frontend lives in its own git repo (fieldops-portal-react)
-web-client/
+# Frontend portal (source included in this repo; node_modules excluded above)

@@ -48,13 +48,15 @@ migrate((db) => {
     reminderLogs: "reminder_logs00"
   };
 
+  // PocketBase 0.22 rule semantics: null = admin-only, "" = public.
+  // Operational collections are open (demo); users is admin-only; audit_logs read-only.
   const DEMO_OPEN = {
-    listRule: null, viewRule: null, createRule: null, updateRule: null, deleteRule: null
-  };
-  const LOCKED = {
     listRule: "", viewRule: "", createRule: "", updateRule: "", deleteRule: ""
   };
-  const READ_ONLY = { listRule: null, viewRule: null, createRule: "", updateRule: "", deleteRule: "" };
+  const LOCKED = {
+    listRule: null, viewRule: null, createRule: null, updateRule: null, deleteRule: null
+  };
+  const READ_ONLY = { listRule: "", viewRule: "", createRule: null, updateRule: null, deleteRule: null };
 
   const save = (name, id, schema, rules, opts) => {
     const c = new Collection(Object.assign({
