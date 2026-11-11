@@ -10,19 +10,22 @@ backend/pb_*.log
 node_modules/
 npm-debug.log*
 
-# Build outputs
+# Build outputs (keep the shipped debug APK via the exception below)
 app/build/
 app/.gradle/
 app/.dart_tool/
 app/build.apk
+app/android/.gradle/
+app/android/build/
+app/android/app/build/
 *.apk
+!FieldOps-v2.0.0-debug.apk
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Local env / secrets
+# Local env / secrets (KEYS_AND_ACCESS.md is intentionally committed for handoff)
 .env
-*.local
 
 # Frontend portal (source included in this repo; node_modules excluded above)

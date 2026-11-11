@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+
+    <androidx.camera.view.PreviewView
+        android:id="@+id/previewView"
+        android:layout_width="match_parent" android:layout_height="match_parent" />
+
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:layout_gravity="bottom"
+        android:background="#AA000000" android:padding="12dp">
+
+        <EditText
+            android:id="@+id/etPlate"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:hint="Plate (OCR fills this)" android:textColor="#FFFFFF"
+            android:textColorHint="#88FFFFFF" android:inputType="text" />
+
+        <TextView
+            android:id="@+id/tvOcr"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="OCR: —" android:textColor="#FFD54F" android:textSize="12sp"
+            android:paddingTop="4dp" android:paddingBottom="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnShutter"
+                android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="CAPTURE" android:backgroundTint="#EF6C00" />
+
+            <Button
+                android:id="@+id/btnUpload"
+                android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="SAVE CAPTURE" android:backgroundTint="#2E7D32" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

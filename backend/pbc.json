@@ -1,0 +1,17 @@
+{
+  "pocketbaseVersion": "0.22.32",
+  "build": {
+    "pbHooks": "pb_hooks",
+    "pbMigrations": "pb_migrations"
+  },
+  "projectId": "j2nnf0udodj4kuc",
+  "kind": "pocketbases",
+  "defaultEnvironment": "production",
+  "environments": {
+    "production": {
+      "id": "wzc6r4fspi7fdd2",
+      "name": "fieldops-db",
+      "revision": 1
+    }
+  }
+}

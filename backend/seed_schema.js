@@ -33,10 +33,19 @@ async function main() {
     throw new Error("Set PB_ADMIN_EMAIL and PB_ADMIN_PASSWORD (a PocketBase superuser).");
   }
 
-  const auth = await api("/api/collections/_superusers/auth-with-password", {
-    method: "POST",
-    body: JSON.stringify({ identity: EMAIL, password: PASSWORD })
-  });
+  // PB <= 0.22: /api/admins/auth-with-password — PB >= 0.23: /api/collections/_superusers/...
+  let auth;
+  try {
+    auth = await api("/api/admins/auth-with-password", {
+      method: "POST",
+      body: JSON.stringify({ identity: EMAIL, password: PASSWORD })
+    });
+  } catch (e) {
+    auth = await api("/api/collections/_superusers/auth-with-password", {
+      method: "POST",
+      body: JSON.stringify({ identity: EMAIL, password: PASSWORD })
+    });
+  }
   const token = auth.token;
   console.log("Authenticated as superuser.");
 

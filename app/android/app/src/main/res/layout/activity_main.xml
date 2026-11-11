@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:fillViewport="true" android:background="#F2F5F9">
+
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="20dp">
+
+        <TextView
+            android:id="@+id/tvUser"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="—" android:textSize="18sp" android:textStyle="bold"
+            android:textColor="#1B3A5C" />
+
+        <TextView
+            android:id="@+id/tvHub"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="—" android:textSize="13sp" android:textColor="#5A6B7C"
+            android:paddingBottom="8dp" />
+
+        <TextView
+            android:id="@+id/tvZone"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Zone: —" android:textSize="15sp" android:textStyle="bold"
+            android:paddingBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="ATTENDANCE (geofence-validated, strict radius)"
+            android:textSize="12sp" android:textStyle="bold" android:textColor="#5A6B7C"
+            android:paddingBottom="6dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnCheckIn"
+                android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="CHECK IN" android:backgroundTint="#2E7D32" />
+
+            <Button
+                android:id="@+id/btnCheckOut"
+                android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="CHECK OUT" android:backgroundTint="#C62828" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="JOBS"
+            android:textSize="12sp" android:textStyle="bold" android:textColor="#5A6B7C"
+            android:paddingTop="14dp" android:paddingBottom="6dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnStartJob"
+                android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="START JOB" android:backgroundTint="#1565C0" />
+
+            <Button
+                android:id="@+id/btnEndJob"
+                android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="END JOB" android:backgroundTint="#6A1B9A" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="SERVICES"
+            android:textSize="12sp" android:textStyle="bold" android:textColor="#5A6B7C"
+            android:paddingTop="14dp" android:paddingBottom="6dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnBubble"
+                android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="SHOW BUBBLE" android:backgroundTint="#1B3A5C" />
+
+            <Button
+                android:id="@+id/btnGeo"
+                android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="GEOFENCE ON" android:backgroundTint="#00695C" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnCapture"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="CAPTURE / OCR (vehicle plate + odometer)"
+            android:backgroundTint="#EF6C00"
+            android:layout_marginTop="14dp" />
+
+        <Button
+            android:id="@+id/btnLogout"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="SIGN OUT" android:backgroundTint="#5A6B7C"
+            android:layout_marginTop="24dp" />
+
+        <TextView
+            android:id="@+id/tvLog"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="" android:textSize="12sp" android:textColor="#37474F"
+            android:paddingTop="12dp" android:typeface="monospace" />
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">FieldOps</string>
+    <string name="bubble_start">START JOB</string>
+    <string name="bubble_end">END JOB</string>
+    <string name="bubble_capture">CAPTURE OCR</string>
+    <string name="bubble_close">HIDE</string>
+</resources>
