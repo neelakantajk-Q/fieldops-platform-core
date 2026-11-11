@@ -65,3 +65,10 @@ $lp = Join-Path $PSScriptRoot "..\app\android\local.properties"
 
 Write-Host "`nDone. Open a NEW terminal so PATH/JAVA_HOME/ANDROID_HOME take effect."
 Write-Host "Then: scripts\build_apk.ps1   |   scripts\deploy_backend_cloud.ps1   |   scripts\run_local_tests.ps1"
+
+# ---- Graphify knowledge graph (optional but recommended: query instead of grep) ----
+python -m pip install --user graphifyy --disable-pip-version-check
+\ = Join-Path \C:\Users\Ashok\AppData\Roaming "Python\Python312\Scripts"
+\ = [Environment]::GetEnvironmentVariable("Path", "User")
+if (\ -notlike "*\*") { [Environment]::SetEnvironmentVariable("Path", "\;\", "User") }
+Write-Host "graphify installed (%APPDATA%\Python\Python312\Scripts\graphify.exe)."

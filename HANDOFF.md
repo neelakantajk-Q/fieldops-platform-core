@@ -102,6 +102,11 @@ Gradle 8.7 + `pbc` 0.9.9 — all portable installs under
 
 ## 3. TODO — what the next LLM should do, in order
 
+BEFORE grepping or mass-reading files: a graphify knowledge graph of this repo
+is committed at `graphify-out/` (820 nodes / 1881 edges: web client, backend,
+tests, Android app, hook shims). Query it first (§9). Read `HANDOFF.md` +
+`graphify-out/GRAPH_REPORT.md`, then open only the files a query points to.
+
 ### W1 (blocker) — Cloud admin auth returns 400 "Failed to authenticate"
 The cloud instance rejects `/api/admins/auth-with-password` for
 `itadmin@fieldops.local / FieldOps#2026` even though
@@ -254,3 +259,27 @@ Branch with this continuation: `continue/android-overlay-cloud` on top of
 folder (workspace root) — on another machine:
 `git clone fieldops-continue.bundle fieldops-platform-core` then
 `git checkout continue/android-overlay-cloud`.
+
+## 9. Graphify knowledge graph — query, don't grep
+`graphify-out/` holds a code-only (no LLM/API key needed) knowledge graph of
+the whole repo, built with graphify v0.9.106 (`pip install --user graphifyy`,
+double-y; CLI `%APPDATA%\Python\Python312\Scripts\graphify.exe`, on PATH for
+new terminals). Committing it means a fresh session can answer "where/how"
+questions without reading files:
+
+- `graphify-out/GRAPH_REPORT.md` — highlights, god-nodes, communities
+- `graphify-out/graph.json` — full graph (what queries traverse)
+- `graphify-out/graph.html` — interactive viz, open in a browser
+- Commands (exit 0 = answer, 3 = ambiguous name, 4 = no match):
+  `graphify query "roaming approval flow"` | `explain "GeofenceService"` |
+  `path "LoginActivity" "attendance"` | `affected "geofence_check"`
+- After editing code: `powershell -File scripts\sync_graph_shims.ps1` then
+  `graphify update .` (incremental, no LLM). Use `--force` after deletions.
+- Why `graphify-shims/` exists: graphify doesn't classify the `.pb.js`
+  extension, so the 5 PocketBase hooks (the backend's core logic) are copied
+  there as `.js` by the sync script purely for indexing. EDIT HOOKS IN
+  `backend/pb_hooks/` ONLY and re-sync; never edit shims.
+- The opencode skill + grep-interrupt hook were installed on this machine via
+  `graphify install opencode` (writes to `~/.config/opencode/`); on a new
+  machine run that once after installing graphifyy. `graphify install` also
+  supports claude/codex/cursor/etc.
