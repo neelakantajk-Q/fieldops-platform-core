@@ -1,4 +1,4 @@
-# KEYS AND ACCESS (handoff file — intentional for cross-device continuation)
+﻿# KEYS AND ACCESS (handoff file â€” intentional for cross-device continuation)
 #
 # WARNING: these are demo/free-tier credentials for development handoff only.
 # The pbc CLI token can be revoked/regenerated in the portal (Account page).
@@ -8,7 +8,7 @@
 - Portal:            https://portal.pocketbasecloud.com/projects
 - Project:           Neelakanta JK's Project
 - Project ID:        j2nnf0udodj4kuc
-- Plan:              free (trial, 7 days from 2026-11-11 — add a card in the portal to keep it)
+- Plan:              free (trial, 7 days from 2026-11-11 â€” add a card in the portal to keep it)
 - Instance name:     fieldops-db
 - Instance ID:       wzc6r4fspi7fdd2
 - Public URL:        https://wzc6r4fspi7fdd2.pwz5.pocketbasecloud.com
@@ -48,3 +48,10 @@ Usage:
 ## Android app default server URL
 - Prefilled in LoginActivity: the cloud URL above (editable on-device;
   use http://10.0.2.2:8090 for the local emulator).
+## !! FREE TRIAL EXPIRES ~2026-11-18 !!
+- The Cloud project is on a 7-day free trial starting 2026-11-11.
+- Add a payment card in the portal (Billing) before ~2026-11-18 to keep the
+  instance and demo URLs alive after the trial.
+- CLI access tokens expire quickly: if 'pbc login --token' says 'Not authenticated',
+  fetch a new token from portal > Account > CLI access token.
+

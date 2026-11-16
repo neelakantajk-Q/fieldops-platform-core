@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Custom FieldOps API routes.
  * Keeps the legacy client contract (username + SHA-256 passwordHash +
  * single-device sessions) while the underlying store is PocketBase.
@@ -101,44 +101,37 @@ routerAdd("GET", "/api/fieldops/health", (c) => {
 });
 
 /* ---------------------------------------------------------------- helpers */
+/* NOTE (0.22 JSVM): top-level function declarations are NOT visible inside
+   router/hook callbacks, so the session guard is inlined in every route that
+   needs it. Keep the copies in sync. */
 
-function findUserBySessionToken(token) {
-    if (!token) return null;
-    try {
-        const users = $app.dao().findRecordsByFilter(
-            "users", "active_session_token = {:t}", "", 1, 0, { t: token }
-        );
-        if (!users || !users.length) return null;
-        const u = users[0];
-        const expiry = Number(u.get("session_expiry") || 0);
-        if (expiry > 0 && Date.now() > expiry) return null;
-        return u;
-    } catch (err) {
-        return null;
-    }
-}
-
-function guardSession(c, minRole) {
-    const info = $apis.requestInfo(c);
-    const body = info.data || {};
-    const u = findUserBySessionToken(String(body.sessionToken || "").trim());
-    if (!u) return { error: c.json(401, { success: false, code: "SESSION_INVALID", message: "Sign in again." }) };
-    const ranks = { Technician: 1, Supervisor: 2, Moderator: 3, Administrator: 4, Platform: 99 };
-    if ((ranks[u.get("role")] || 0) < minRole) {
-        return { error: c.json(403, { success: false, code: "FORBIDDEN", message: "Insufficient role." }) };
-    }
-    return { user: u, body };
-}
 
 /* ------------------------------------------------ directory (Team + org) */
 
 routerAdd("POST", "/api/fieldops/directory", (c) => {
-    const guard = guardSession(c, 1);
+    // inlined session guard (0.22 JSVM: top-level helpers are not visible here)
+    const guard = (() => {
+        const info = $apis.requestInfo(c);
+        const body = info.data || {};
+        let u = null;
+        try {
+            const rows = $app.dao().findRecordsByFilter(
+                "users", "active_session_token = {:t}", "", 1, 0,
+                { t: String(body.sessionToken || "").trim() }
+            );
+            if (rows && rows.length) {
+                const expiry = Number(rows[0].get("session_expiry") || 0);
+                if (!(expiry > 0 && Date.now() > expiry)) u = rows[0];
+            }
+        } catch (err) { u = null; }
+        if (!u) return { error: c.json(401, { success: false, code: "SESSION_INVALID", message: "Sign in again." }) };
+        return { user: u, body };
+    })();
     if (guard.error) return guard.error;
 
     const db = $app.dao();
     const pick = (col, fields) => {
-        return db.findRecordsByFilter(col, "", "-created", 500, 0).map((r) => {
+        return db.findRecordsByFilter(col, "id != ''", "-created", 500, 0).map((r) => {
             const row = { id: r.id };
             for (let i = 0; i < fields.length; i++) {
                 const [field, alias] = fields[i];
@@ -157,7 +150,7 @@ routerAdd("POST", "/api/fieldops/directory", (c) => {
         ["name"], ["hub_id", "hubId"], ["address"],
         ["latitude"], ["longitude"], ["active"]
     ]);
-    const users = db.findRecordsByFilter("users", "", "-created", 500, 0).map((r) => ({
+    const users = db.findRecordsByFilter("users", "id != ''", "-created", 500, 0).map((r) => ({
         id: r.id,
         company_id: r.get("company_id"),
         userCode: r.get("user_code"),
@@ -179,7 +172,28 @@ routerAdd("POST", "/api/fieldops/directory", (c) => {
 /* ------------------------------------------------- admin user management */
 
 routerAdd("POST", "/api/fieldops/admin-user", (c) => {
-    const guard = guardSession(c, 4); // Administrator+ only
+    // inlined session guard, Administrator+ only (0.22 JSVM visibility rule)
+    const guard = (() => {
+        const info = $apis.requestInfo(c);
+        const body = info.data || {};
+        let u = null;
+        try {
+            const rows = $app.dao().findRecordsByFilter(
+                "users", "active_session_token = {:t}", "", 1, 0,
+                { t: String(body.sessionToken || "").trim() }
+            );
+            if (rows && rows.length) {
+                const expiry = Number(rows[0].get("session_expiry") || 0);
+                if (!(expiry > 0 && Date.now() > expiry)) u = rows[0];
+            }
+        } catch (err) { u = null; }
+        if (!u) return { error: c.json(401, { success: false, code: "SESSION_INVALID", message: "Sign in again." }) };
+        const ranks = { Technician: 1, Supervisor: 2, Moderator: 3, Administrator: 4, Platform: 99 };
+        if ((ranks[u.get("role")] || 0) < 4) {
+            return { error: c.json(403, { success: false, code: "FORBIDDEN", message: "Insufficient role." }) };
+        }
+        return { user: u, body };
+    })();
     if (guard.error) return guard.error;
     const actor = guard.user;
     const body = guard.body;
@@ -243,11 +257,32 @@ routerAdd("POST", "/api/fieldops/admin-user", (c) => {
 });
 
 routerAdd("POST", "/api/fieldops/admin-settings", (c) => {
-    const guard = guardSession(c, 4);
+    // inlined session guard, Administrator+ only (0.22 JSVM visibility rule)
+    const guard = (() => {
+        const info = $apis.requestInfo(c);
+        const body = info.data || {};
+        let u = null;
+        try {
+            const rows = $app.dao().findRecordsByFilter(
+                "users", "active_session_token = {:t}", "", 1, 0,
+                { t: String(body.sessionToken || "").trim() }
+            );
+            if (rows && rows.length) {
+                const expiry = Number(rows[0].get("session_expiry") || 0);
+                if (!(expiry > 0 && Date.now() > expiry)) u = rows[0];
+            }
+        } catch (err) { u = null; }
+        if (!u) return { error: c.json(401, { success: false, code: "SESSION_INVALID", message: "Sign in again." }) };
+        const ranks = { Technician: 1, Supervisor: 2, Moderator: 3, Administrator: 4, Platform: 99 };
+        if ((ranks[u.get("role")] || 0) < 4) {
+            return { error: c.json(403, { success: false, code: "FORBIDDEN", message: "Insufficient role." }) };
+        }
+        return { user: u, body };
+    })();
     if (guard.error) return guard.error;
     const body = guard.body;
     const db = $app.dao();
-    const rows = db.findRecordsByFilter("settings", "", "", 100, 0);
+    const rows = db.findRecordsByFilter("settings", "id != ''", "", 100, 0);
     if (body.update && typeof body.update === "object") {
         Object.keys(body.update).forEach((key) => {
             const found = rows.filter((r) => r.get("key") === key);
@@ -265,6 +300,7 @@ routerAdd("POST", "/api/fieldops/admin-settings", (c) => {
         });
     }
     const out = {};
-    db.findRecordsByFilter("settings", "", "", 100, 0).forEach((r) => { out[r.get("key")] = r.get("value"); });
+    db.findRecordsByFilter("settings", "id != ''", "", 100, 0).forEach((r) => { out[r.get("key")] = r.get("value"); });
     return c.json(200, { success: true, settings: out });
 });
+

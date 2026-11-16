@@ -39,12 +39,15 @@ function istYy() {
 
 /* ------------------------------------------------------------------ setup */
 async function setup() {
-  // admin bootstrap: first run creates it, later runs reuse it
-  let r = await api("POST", "/api/admins/auth-with-password", { identity: "dbg@x.co", password: "Passw0rdLong#" });
+  // admin bootstrap: first run creates it, later runs reuse it.
+  // PB_ADMIN_EMAIL/PB_ADMIN_PASSWORD override for seeded instances (cloud).
+  const email = process.env.PB_ADMIN_EMAIL || "dbg@x.co";
+  const pw = process.env.PB_ADMIN_PASSWORD || "Passw0rdLong#";
+  let r = await api("POST", "/api/admins/auth-with-password", { identity: email, password: pw });
   if (r.status !== 200) {
-    r = await api("POST", "/api/admins", { email: "dbg@x.co", password: "Passw0rdLong#", passwordConfirm: "Passw0rdLong#" });
+    r = await api("POST", "/api/admins", { email: email, password: pw, passwordConfirm: pw });
     if (r.status !== 200) { bad("setup.admin", r.status + " " + JSON.stringify(r.data).slice(0, 200)); return false; }
-    r = await api("POST", "/api/admins/auth-with-password", { identity: "dbg@x.co", password: "Passw0rdLong#" });
+    r = await api("POST", "/api/admins/auth-with-password", { identity: email, password: pw });
     if (r.status !== 200) { bad("setup.admin-login", r.status + " " + JSON.stringify(r.data).slice(0, 200)); return false; }
   }
   state.admin = r.data.token;
