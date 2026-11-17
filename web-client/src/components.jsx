@@ -56,12 +56,88 @@ export function Card({ title, subtitle, actions, children, className = '', pad =
   );
 }
 
-export function Stat({ label, value, hint, tone = '' }) {
+export function Stat({ label, value, hint, tone = '', icon }) {
   return (
     <div className={`stat ${tone}`}>
-      <span className="stat-label">{label}</span>
+      <div className="stat-top">
+        <span className="stat-label">{label}</span>
+        {icon ? <span className="stat-icon" aria-hidden="true">{icon}</span> : null}
+      </div>
       <strong className="stat-value">{value}</strong>
       {hint ? <span className="stat-hint">{hint}</span> : null}
+    </div>
+  );
+}
+
+export function SegTabs({ tabs, active, onChange, ariaLabel }) {
+  return (
+    <div className="seg-tabs" role="tablist" aria-label={ariaLabel}>
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          role="tab"
+          aria-selected={active === t.id}
+          className={`seg-tab ${active === t.id ? 'active' : ''}`}
+          onClick={() => onChange(t.id)}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function Donut({ segments = [], size = 148, stroke = 14, label, sub, ariaLabel }) {
+  const total = segments.reduce((sum, s) => sum + (Number(s.value) || 0), 0);
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+  return (
+    <div className="donut-wrap">
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="donut"
+        role="img"
+        aria-label={ariaLabel || 'Distribution'}
+      >
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#eef2f7" strokeWidth={stroke} />
+        {total > 0
+          ? segments.map((s, i) => {
+              const value = Number(s.value) || 0;
+              const dash = (value / total) * circumference;
+              const circle = (
+                <circle
+                  key={i}
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={radius}
+                  fill="none"
+                  stroke={s.color || '#a6ce39'}
+                  strokeWidth={stroke}
+                  strokeDasharray={`${dash} ${circumference - dash}`}
+                  strokeDashoffset={-offset}
+                  transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                />
+              );
+              offset += dash;
+              return circle;
+            })
+          : null}
+        <text x="50%" y="48%" textAnchor="middle" className="donut-value">{label ?? total}</text>
+        {sub ? <text x="50%" y="62%" textAnchor="middle" className="donut-sub">{sub}</text> : null}
+      </svg>
+      <ul className="legend">
+        {segments.map((s, i) => (
+          <li key={i}>
+            <span className="legend-dot" style={{ background: s.color || '#a6ce39' }} />
+            <span className="legend-name">{s.label}</span>
+            <b>{s.value}</b>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

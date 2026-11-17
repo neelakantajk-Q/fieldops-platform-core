@@ -17,11 +17,12 @@ import Masters from './pages/Masters.jsx';
 import Workflows from './pages/Workflows.jsx';
 import Admin from './pages/Admin.jsx';
 import Platform from './pages/Platform.jsx';
+import logo from './assets/quantum-logo.png';
 
 const ROLE_RANK = { Technician: 1, Supervisor: 2, Moderator: 3, Administrator: 4, Platform: 99 };
 
 const NAV = [
-  { section: 'Main', items: [
+  { section: 'Workspace', items: [
     { id: 'overview', label: 'Overview', min: 1, view: Overview },
     { id: 'attendance', label: 'Attendance', min: 1, view: Attendance },
     { id: 'jobs', label: 'Job Cards', min: 1, view: Jobs },
@@ -31,16 +32,18 @@ const NAV = [
     { id: 'team', label: 'Team', min: 1, view: Team },
     { id: 'notifications', label: 'Notifications', min: 1, view: Notifications }
   ]},
-  { section: 'Fleet', items: [
+  { section: 'Reporting', items: [
     { id: 'uptime', label: 'Vehicle Uptime', min: 2, view: Uptime },
-    { id: 'vehicles', label: 'Vehicles & OCR', min: 2, view: Vehicles }
+    { id: 'reports', label: 'Reports & MIS', min: 2, view: Reports }
   ]},
-  { section: 'Manage', items: [
-    { id: 'reports', label: 'Reports & MIS', min: 2, view: Reports },
-    { id: 'masters', label: 'Master Data', min: 2, view: Masters },
+  { section: 'Fleet', items: [
+    { id: 'vehicles', label: 'Vehicles & OCR', min: 2, view: Vehicles },
+    { id: 'masters', label: 'Master Data', min: 2, view: Masters }
+  ]},
+  { section: 'Administration', items: [
     { id: 'workflows', label: 'Workflows', min: 2, view: Workflows },
-    { id: 'admin', label: 'Administration', min: 4, view: Admin },
-    { id: 'platform', label: 'Platform', min: 4, view: Platform }
+    { id: 'admin', label: 'Admin Panel', min: 4, view: Admin },
+    { id: 'platform', label: 'Platform Console', min: 4, view: Platform }
   ]}
 ];
 
@@ -75,6 +78,18 @@ function Shell({ session, onAuthChange }) {
   const [navOpen, setNavOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
+
+  useEffect(() => {
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
 
   useEffect(() => {
     let stopped = false;
@@ -133,10 +148,10 @@ function Shell({ session, onAuthChange }) {
     <div className="app">
       <aside className={`sidebar ${navOpen ? 'open' : ''}`}>
         <div className="brand">
-          <div className="brand-mark">F</div>
+          <img className="brand-logo" src={logo} alt="Quantum EV" />
           <div>
-            <div className="brand-name">{BRAND.product}</div>
-            <div className="brand-sub">{BRAND.tagline}</div>
+            <div className="brand-name">Quantum</div>
+            <div className="brand-sub">Field Operations</div>
           </div>
         </div>
         <nav className="nav" onClick={() => setNavOpen(false)}>
@@ -154,28 +169,36 @@ function Shell({ session, onAuthChange }) {
       </aside>
 
       <div className="main">
+        <div className={`status-strip ${online ? '' : 'offline'}`}>
+          <strong><span className="net-dot" />{online ? 'Cloud connected' : 'Working offline'}</strong>
+          <span className="small strip-detail">
+            {online ? `${session.role} · ${session.hub || 'All hubs'}` : 'Changes may be delayed until the connection returns'}
+          </span>
+          <span className="spacer" />
+          {unread ? <span className="chip bad">{unread} unread</span> : <span className="chip ok">All caught up</span>}
+          <span className="chip bar-hide-sm">{BRAND.product} · Field Operations &amp; HRMS</span>
+        </div>
         <header className="appbar">
           <button className="btn ghost sm hamburger" onClick={() => setNavOpen(true)} aria-label="Menu">☰</button>
           <h1>{activeItem ? activeItem.label : BRAND.product}</h1>
           {!checkedIn ? <span className="chip warn bar-hide-sm">Not checked in</span> : <span className="chip ok bar-hide-sm">Checked in</span>}
           <div className="bar-actions">
-            {unread ? (
-              <button className="chip bad bar-hide-sm" style={{ cursor: 'pointer', border: 0 }} onClick={() => setView('notifications')}>
-                {unread} unread
-              </button>
-            ) : null}
+            <button className="btn ghost sm" onClick={() => setView('notifications')}>
+              Notifications{unread ? <span className="badge bad">{unread}</span> : null}
+            </button>
             <span className="chip bar-hide-sm">{session.hub || 'All hubs'} · {session.scope || 'SELF'}</span>
             <span className="user-chip">
               <span className="avatar">{(session.fullName || session.username || '?').charAt(0).toUpperCase()}</span>
               {session.fullName || session.username}
             </span>
-            <button className="btn ghost sm" onClick={doLogout} disabled={busy}>{busy ? 'Signing out…' : 'Logout'}</button>
+            <button className="btn danger sm" onClick={doLogout} disabled={busy}>{busy ? 'Signing out…' : 'Logout'}</button>
           </div>
         </header>
         <main className="content">
           <Active {...sessionProps}
             checkedIn={checkedIn}
             count={unread}
+            onNavigate={(id) => setView(id)}
             onSession={(next) => { saveSession({ ...(currentSession() || {}), ...next }); }}
             onAuthChange={onAuthChange}
           />
