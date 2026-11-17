@@ -12,7 +12,7 @@
  */
 const BASE = (process.env.PB_URL || "http://127.0.0.1:8090").replace(/\/$/, "");
 const ADMIN_EMAIL = process.env.PB_ADMIN_EMAIL || "itadmin@fieldops.local";
-const ADMIN_PASS = process.env.PB_ADMIN_PASSWORD || "FieldOps#2026";
+const ADMIN_PASS = process.env.PB_ADMIN_PASSWORD || "";
 
 let passed = 0, failed = 0;
 function pass(name) { passed++; console.log(`PASS: ${name}`); }

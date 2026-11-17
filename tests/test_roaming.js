@@ -9,7 +9,7 @@
  */
 const BASE = (process.env.PB_URL || "http://127.0.0.1:8090").replace(/\/$/, "");
 const ADMIN_EMAIL = process.env.PB_ADMIN_EMAIL || "itadmin@fieldops.local";
-const ADMIN_PASS = process.env.PB_ADMIN_PASSWORD || "FieldOps#2026";
+const ADMIN_PASS = process.env.PB_ADMIN_PASSWORD || "";
 const crypto = require("crypto");
 
 let passed = 0, failed = 0;

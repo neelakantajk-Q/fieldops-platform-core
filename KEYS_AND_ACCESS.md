@@ -17,20 +17,20 @@
 
 ## Instance superuser (VERIFIED WORKING 2026-11-11)
 - Email:             itadmin@fieldops.local
-- Password:          FieldOps#2026
+- Password:          <REDACTED — rotate before use; see portal Billing/Account>
 - NOTE: the instance DB's admins table can be EMPTY even though `pbc pocketbase
   info` shows creds (the platform's managed-superuser sync does not seed the DB).
   While empty, PB 0.22 permits unauthenticated creation:
-    POST /api/admins {"email":"itadmin@fieldops.local","password":"FieldOps#2026","passwordConfirm":"FieldOps#2026"}
+    POST /api/admins {"email":"itadmin@fieldops.local","password":"<REDACTED>","passwordConfirm":"<REDACTED>"}
   Once created, normal auth works (cloud seeded; 8/8 + 13/13 tests green).
 - If creds are lost: delete the admin row from the panel and re-create as above,
   or use the panel's password reset.
 
 ## pbc CLI access token (portal > Account > CLI access token)
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2xsZWN0aW9uSWQiOiJfcGJfdXNlcnNfYXV0aF8iLCJleHAiOjE3OTQ0NTA1NTYsImlkIjoicDJ3ZGgyNzN2ejhhcWJ2IiwicmVmcmVzaGFibGUiOnRydWUsInR5cGUiOiJhdXRoIn0.DoK-bh06VT9oSn0Yg4mgsoh-oOn_r5jOVkvFoBy8eho
+<REDACTED — generate a fresh token in the portal; never commit it>
 
 Usage:
-  pbc login --token <token above>
+  pbc login --token <paste token here>
   pbc project use j2nnf0udodj4kuc
   cd backend && pbc pocketbase deploy --name fieldops-db --no-input
 
@@ -43,7 +43,7 @@ Usage:
 - Login:             cloud admin/mod/user1 seeded by backend/seed_schema.js
 
 ## Local dev superuser (local pb_data, same creds)
-- itadmin@fieldops.local / FieldOps#2026
+- itadmin@fieldops.local / <REDACTED>
 
 ## Android app default server URL
 - Prefilled in LoginActivity: the cloud URL above (editable on-device;

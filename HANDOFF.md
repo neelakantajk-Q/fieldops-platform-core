@@ -119,7 +119,7 @@ credentials shown by `pbc pocketbase info`; it never writes a row into the
 instance DB. Wrong-password 400s are therefore expected for every combo.
 Fix that worked: PB 0.22 allows unauthenticated admin creation while the table
 is empty —
-`POST /api/admins {"email":"itadmin@fieldops.local","password":"FieldOps#2026","passwordConfirm":"…"}`
+`POST /api/admins {"email":"itadmin@fieldops.local","password":"<REDACTED>","passwordConfirm":"…"}`
 → created, then auth + seed + all tests work. If this ever 401s again, the table
 already has an admin (use the panel or `pbc pocketbase superuser sync` +
 instance redeploy). Don't bother with the old debug checklist below.
@@ -233,7 +233,7 @@ powershell -ExecutionPolicy Bypass -File scripts\setup_new_device.ps1
 # Local backend + all tests (needs backend\bin\pocketbase.exe + pb_data):
 powershell -ExecutionPolicy Bypass -File scripts\run_local_tests.ps1
 # Fresh pb_data: start serve once, then:
-#   backend\bin\pocketbase.exe admin create itadmin@fieldops.local "FieldOps#2026"
+#   backend\bin\pocketbase.exe admin create itadmin@fieldops.local "<REDACTED>"
 #   node backend\seed_schema.js   (with PB_URL/PB_ADMIN_EMAIL/PB_ADMIN_PASSWORD env)
 
 # APK:

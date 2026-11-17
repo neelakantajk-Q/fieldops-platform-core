@@ -5,12 +5,12 @@ $repo = Resolve-Path (Join-Path $PSScriptRoot "..")
 $backend = Join-Path $repo "backend"
 
 # First-time setup on a fresh pb_data:
-#   & "$backend\bin\pocketbase.exe" admin create --dir "$backend\pb_data" itadmin@fieldops.local "FieldOps#2026"
+#   & "$backend\bin\pocketbase.exe" admin create --dir "$backend\pb_data" itadmin@fieldops.local "<REDACTED>"
 # (run admin create AFTER starting the server once; on an empty dir use a temp serve)
 
 $env:PB_URL = "http://127.0.0.1:8090"
 $env:PB_ADMIN_EMAIL = "itadmin@fieldops.local"
-$env:PB_ADMIN_PASSWORD = "FieldOps#2026"
+$env:PB_ADMIN_PASSWORD = $env:FIELDOPS_ADMIN_PASSWORD
 
 $pb = "$backend\bin\pocketbase.exe"
 if (!(Test-Path $pb)) {

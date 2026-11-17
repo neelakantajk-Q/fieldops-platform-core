@@ -16,7 +16,7 @@ implemented yet) plus the verified state so tomorrow continues without re-readin
 - Graph: `graphify-out/graph.json` (820 nodes / 1881 edges). Refresh with
   `scripts\sync_graph_shims.ps1` + `graphify update .` after code changes;
   graphify is code-only, so this Markdown is NOT in the graph — read the file.
-- Cloud admin: `itadmin@fieldops.local` / `FieldOps#2026`. The admins table was
+- Cloud admin: `itadmin@fieldops.local` / `<REDACTED>`. The admins table was
   EMPTY (platform superuser sync does not seed it); created via
   `POST /api/admins`. If auth ever 400s again, check for an empty admins table.
 - `pbc pocketbase deploy` uploads new hooks but does NOT activate them →
@@ -172,7 +172,7 @@ git pull; git log --oneline -3
 graphify query "roaming approval flow"        # query the graph, don't grep
 powershell -File scripts\run_local_tests.ps1  # local 8/8 + 13/13
 $env:PB_URL="https://wzc6r4fspi7fdd2.pwz5.pocketbasecloud.com"
-$env:PB_ADMIN_EMAIL="itadmin@fieldops.local"; $env:PB_ADMIN_PASSWORD="FieldOps#2026"
+$env:PB_ADMIN_EMAIL="itadmin@fieldops.local"; $env:PB_ADMIN_PASSWORD="<REDACTED>"
 node tests\test_integration.js; node tests\test_roaming.js
 powershell -File scripts\deploy_backend_cloud.ps1   # deploy + hooks push
 powershell -File scripts\build_apk.ps1
