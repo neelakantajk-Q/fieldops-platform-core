@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { call, clearSession, isAuthenticated, post, saveSession } from './api.js';
+import { call, clearSession, currentSession, isAuthenticated, post, saveSession } from './api.js';
 import { clientRequestId } from './lib/utils.js';
 import { BRAND } from './config.js';
 import { ToastProvider, useToast } from './components.jsx';
@@ -47,18 +47,49 @@ const NAV = [
   ]}
 ];
 
-function allowed(item, session) {
-  if ((ROLE_RANK[session.role] || 1) < item.min) return false;
-  const mr = session.moduleRights;
-  if (Array.isArray(mr) && mr.length) {
-    return mr.map((s) => String(s).toLowerCase().replace(/module[-_]?/i, '').replace(/view[-_]?/i, '')).includes(item.id);
-  }
+const MODULE_ALIASES = {
+  tasks: ['jobs', 'pending'],
+  jobs: ['jobs', 'pending'],
+  attendance: ['attendance'],
+  team: ['team'],
+  vehicles: ['vehicles', 'uptime'],
+  uptime: ['uptime', 'vehicles'],
+  reports: ['reports'],
+  notifications: ['notifications'],
+  masters: ['masters'],
+  workflows: ['workflows'],
+  admin: ['admin'],
+  platform: ['platform']
+};
+
+const MODULE_NAMES = ['tasks', 'attendance', 'vehicles', 'team', 'reports', 'notifications', 'masters', 'workflows', 'admin', 'platform'];
+
+function normalizeModule(value) {
+  const raw = String(value || '').toLowerCase().replace(/^module[-_]?/, '').replace(/[-_]?view$/, '').trim();
+  const hit = MODULE_NAMES.find((m) => raw === m || raw.includes(m));
+  return hit || raw;
+}
+
+function grantedModules(moduleRights) {
+  const mr = moduleRights;
+  if (Array.isArray(mr)) return mr.map(normalizeModule).filter(Boolean);
+  if (typeof mr === 'string') return mr.split(',').map(normalizeModule).filter(Boolean);
   if (mr && typeof mr === 'object') {
-    const truthy = Object.entries(mr).filter(([, v]) => v === true).map(([k]) =>
-      String(k).toLowerCase().replace(/module[-_]?/i, '').replace(/view[-_]?/i, ''));
-    if (truthy.length) return truthy.includes(item.id);
+    return Object.entries(mr).filter(([, v]) => v === true || v === 'true').map(([k]) => normalizeModule(k));
   }
-  return true;
+  return [];
+}
+
+function allowed(item, session) {
+  const rank = ROLE_RANK[session.role] || 1;
+  if (rank < item.min) return false;
+  if (rank >= 4) return true;
+  if (item.id === 'overview' || item.id === 'notifications') return true;
+  const granted = grantedModules(session.moduleRights);
+  if (!granted.length) return true;
+  const expanded = new Set();
+  granted.forEach((g) => (MODULE_ALIASES[g] || [g]).forEach((id) => expanded.add(id)));
+  return expanded.has(item.id);
 }
 
 function App() {
