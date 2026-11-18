@@ -2,25 +2,10 @@
   "communities": {
     "0": [
       "ref_react",
-      "web_client_src_api",
-      "web_client_src_api_apierror",
       "web_client_src_api_call",
-      "web_client_src_api_clearsession",
-      "web_client_src_api_currentsession",
-      "web_client_src_api_ensureok",
-      "web_client_src_api_isauthenticated",
-      "web_client_src_api_loadsession",
-      "web_client_src_api_post",
-      "web_client_src_api_savesession",
-      "web_client_src_api_session",
       "web_client_src_app",
-      "web_client_src_app_allowed",
-      "web_client_src_app_app",
       "web_client_src_app_nav",
       "web_client_src_app_role_rank",
-      "web_client_src_app_shell",
-      "web_client_src_app_shell_dologout",
-      "web_client_src_app_shell_poll",
       "web_client_src_components",
       "web_client_src_components_badge",
       "web_client_src_components_btn",
@@ -38,12 +23,10 @@
       "web_client_src_components_toastprovider",
       "web_client_src_components_useasync",
       "web_client_src_components_usetoast",
-      "web_client_src_config_brand",
       "web_client_src_lib_utils_clientrequestid",
       "web_client_src_lib_utils_getposition",
       "web_client_src_lib_utils_minutestotext",
       "web_client_src_lib_utils_todayiso",
-      "web_client_src_main",
       "web_client_src_pages_admin",
       "web_client_src_pages_admin_admin",
       "web_client_src_pages_admin_admin_setpassword",
@@ -65,8 +48,6 @@
       "web_client_src_pages_jobs_jobs_requesthold",
       "web_client_src_pages_jobs_statuses",
       "web_client_src_pages_jobs_statustone",
-      "web_client_src_pages_login",
-      "web_client_src_pages_login_login",
       "web_client_src_pages_masters",
       "web_client_src_pages_masters_mastermodal",
       "web_client_src_pages_masters_mastermodal_save",
@@ -111,11 +92,27 @@
       "web_client_src_pages_vehicles_vehicles_archive",
       "web_client_src_pages_workflows",
       "web_client_src_pages_workflows_tone",
-      "web_client_src_pages_workflows_workflows",
-      "web_client_src_styles"
+      "web_client_src_pages_workflows_workflows"
     ],
     "1": [
+      "backend_pb_hooks_record_defaults_pb",
+      "web_client_src_api",
+      "web_client_src_api_apierror",
+      "web_client_src_api_clearsession",
+      "web_client_src_api_currentsession",
+      "web_client_src_api_ensureok",
+      "web_client_src_api_isauthenticated",
+      "web_client_src_api_loadsession",
+      "web_client_src_api_post",
+      "web_client_src_api_savesession",
+      "web_client_src_api_session",
+      "web_client_src_app_allowed",
+      "web_client_src_app_app",
+      "web_client_src_app_shell",
+      "web_client_src_app_shell_dologout",
+      "web_client_src_app_shell_poll",
       "web_client_src_config",
+      "web_client_src_config_brand",
       "web_client_src_config_decodedefaultendpoint",
       "web_client_src_config_device_key",
       "web_client_src_config_getapibaseurl",
@@ -166,9 +163,74 @@
       "web_client_src_lib_utils_timeonly",
       "web_client_src_lib_utils_uuid",
       "web_client_src_lib_utils_watermarkimage",
-      "web_client_src_pages_login_login_dologin"
+      "web_client_src_main",
+      "web_client_src_pages_login",
+      "web_client_src_pages_login_login",
+      "web_client_src_pages_login_login_dologin",
+      "web_client_src_styles"
     ],
     "2": [
+      "alphaanimation",
+      "animation",
+      "animationset",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_kt_intent",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_kt_service",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_kt_suppresslint",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_kt_textview",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_actioncircle",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_addbubble1",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_addbubble2",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_completejob",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_confirmcomplete",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_dp",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_draglistener",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_elapsedseconds",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_evaluate",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_formatelapsed",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_jobtimerpill",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_onbind",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_oncreate",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_ondestroy",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_onprimaryclick",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_opencamera",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_parseiso",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_pollnow",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_pollserver",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_renderbubble1",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_renderbubble2",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_toast",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_updatetimer",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_windowparams",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_stage",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_stage_awaiting_approval",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_stage_job_active",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_stage_need_checkin",
+      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_stage_ready_job",
+      "app_android_app_src_main_java_com_fieldops_mobile_watermark",
+      "app_android_app_src_main_java_com_fieldops_mobile_watermark_kt_bitmap",
+      "app_android_app_src_main_java_com_fieldops_mobile_watermark_watermark",
+      "app_android_app_src_main_java_com_fieldops_mobile_watermark_watermark_stamp",
+      "canvas",
+      "color",
+      "framelayout",
+      "gradientdrawable",
+      "gravity",
+      "imageview",
+      "linearlayout",
+      "log",
+      "motionevent",
+      "paint",
+      "pixelformat",
+      "scaleanimation",
+      "typedvalue",
+      "typeface",
+      "view",
+      "viewgroup",
+      "windowmanager"
+    ],
+    "3": [
       "app_android_app_src_main_java_com_fieldops_mobile_api",
       "app_android_app_src_main_java_com_fieldops_mobile_api_api",
       "app_android_app_src_main_java_com_fieldops_mobile_api_api_approverequest",
@@ -197,6 +259,13 @@
       "app_android_app_src_main_java_com_fieldops_mobile_api_api_uploadcapture",
       "app_android_app_src_main_java_com_fieldops_mobile_api_api_url",
       "app_android_app_src_main_java_com_fieldops_mobile_api_apierror",
+      "app_android_app_src_main_java_com_fieldops_mobile_prefs",
+      "app_android_app_src_main_java_com_fieldops_mobile_prefs_kt_context",
+      "app_android_app_src_main_java_com_fieldops_mobile_prefs_prefs",
+      "app_android_app_src_main_java_com_fieldops_mobile_prefs_prefs_clearsession",
+      "app_android_app_src_main_java_com_fieldops_mobile_prefs_prefs_init",
+      "app_android_app_src_main_java_com_fieldops_mobile_prefs_prefs_put",
+      "app_android_app_src_main_java_com_fieldops_mobile_prefs_prefs_resetdayflow",
       "asrequestbody",
       "exception",
       "file",
@@ -207,14 +276,28 @@
       "okhttpclient",
       "request",
       "requestbody",
+      "sharedpreferences",
       "timeunit",
       "tomediatype",
-      "torequestbody"
+      "torequestbody",
+      "uuid"
     ],
-    "3": [
+    "4": [
       "app_android_app_src_main_java_com_fieldops_mobile_fieldopsapp",
       "app_android_app_src_main_java_com_fieldops_mobile_fieldopsapp_fieldopsapp",
       "app_android_app_src_main_java_com_fieldops_mobile_fieldopsapp_fieldopsapp_oncreate",
+      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity",
+      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_kt_appcompatactivity",
+      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_kt_bundle",
+      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_kt_button",
+      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_kt_suppresslint",
+      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_kt_textview",
+      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_loginactivity",
+      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_loginactivity_confirmtakeover",
+      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_loginactivity_gomain",
+      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_loginactivity_oncreate",
+      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_loginactivity_showerror",
+      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_loginactivity_showinfo",
       "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_pollroamingrequests",
       "app_android_app_src_main_java_com_fieldops_mobile_notify",
       "app_android_app_src_main_java_com_fieldops_mobile_notify_kt_context",
@@ -225,12 +308,6 @@
       "app_android_app_src_main_java_com_fieldops_mobile_notify_notify_ensurechannels",
       "app_android_app_src_main_java_com_fieldops_mobile_notify_notify_notify",
       "app_android_app_src_main_java_com_fieldops_mobile_notify_notify_service",
-      "app_android_app_src_main_java_com_fieldops_mobile_prefs",
-      "app_android_app_src_main_java_com_fieldops_mobile_prefs_kt_context",
-      "app_android_app_src_main_java_com_fieldops_mobile_prefs_prefs",
-      "app_android_app_src_main_java_com_fieldops_mobile_prefs_prefs_clearsession",
-      "app_android_app_src_main_java_com_fieldops_mobile_prefs_prefs_init",
-      "app_android_app_src_main_java_com_fieldops_mobile_prefs_prefs_put",
       "app_android_app_src_main_java_com_fieldops_mobile_roamingactionreceiver",
       "app_android_app_src_main_java_com_fieldops_mobile_roamingactionreceiver_kt_broadcastreceiver",
       "app_android_app_src_main_java_com_fieldops_mobile_roamingactionreceiver_kt_context",
@@ -240,16 +317,55 @@
       "app_android_app_src_main_java_com_fieldops_mobile_roamingactionreceiver_roamingactionreceiver_onreceive",
       "app_android_app_src_main_java_com_fieldops_mobile_roamingactionreceiver_roamingactionreceiver_pi",
       "application",
+      "handler",
       "intent",
+      "looper",
       "notification",
       "notificationchannel",
       "notificationcompat",
       "notificationmanager",
       "notificationmanagercompat",
-      "sharedpreferences",
-      "uuid"
+      "thread"
     ],
-    "4": [
+    "5": [
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_capture",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_capture_object_onimagesavedcallback_l149",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_capture_object_onimagesavedcallback_l149_onerror",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_capture_object_onimagesavedcallback_l149_onimagesaved",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_currentfix",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_extractplate",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_oncreate",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_onrequestpermissionsresult",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_runocr",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_stampproof",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_startcamera",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_kt_appcompatactivity",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_kt_bundle",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_kt_button",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_kt_suppresslint",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_kt_textview",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_mode",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_mode_attendance",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_mode_capture",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_mode_job",
+      "bitmap",
+      "bitmapfactory",
+      "cameraselector",
+      "edittext",
+      "imagecapture",
+      "imagecaptureexception",
+      "inputimage",
+      "intarray",
+      "preview",
+      "previewview",
+      "processcameraprovider",
+      "tasks",
+      "textrecognition",
+      "textrecognizeroptions"
+    ],
+    "6": [
       "legacy_reference_gas_latest_utils",
       "legacy_reference_gas_latest_utils_apperror",
       "legacy_reference_gas_latest_utils_bool",
@@ -283,80 +399,38 @@
       "legacy_reference_gas_latest_utils_uuid",
       "legacy_reference_gas_latest_utils_verifypassword"
     ],
-    "5": [
-      "activitycompat",
-      "app_android_app_src_main_java_com_fieldops_mobile_api_api_isttoday",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_capture",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_capture_object_onimagesavedcallback_l90",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_capture_object_onimagesavedcallback_l90_onerror",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_capture_object_onimagesavedcallback_l90_onimagesaved",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_extractplate",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_oncreate",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_onrequestpermissionsresult",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_runocr",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_savecapture",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_startcamera",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_kt_appcompatactivity",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_kt_bundle",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_kt_suppresslint",
-      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_kt_textview",
-      "app_android_app_src_main_java_com_fieldops_mobile_watermark",
-      "app_android_app_src_main_java_com_fieldops_mobile_watermark_watermark",
-      "app_android_app_src_main_java_com_fieldops_mobile_watermark_watermark_stamp",
-      "bitmap",
-      "bitmapfactory",
-      "cameraselector",
-      "canvas",
-      "color",
-      "contextcompat",
-      "edittext",
-      "imagecapture",
-      "imagecaptureexception",
-      "inputimage",
-      "intarray",
-      "paint",
-      "preview",
-      "previewview",
-      "processcameraprovider",
-      "textrecognition",
-      "textrecognizeroptions"
-    ],
-    "6": [
-      "web_client_github_workflows_deploy",
-      "web_client_github_workflows_deploy_build_runs_on",
-      "web_client_github_workflows_deploy_build_steps",
-      "web_client_github_workflows_deploy_concurrency",
-      "web_client_github_workflows_deploy_concurrency_cancel_in_progress",
-      "web_client_github_workflows_deploy_concurrency_group",
-      "web_client_github_workflows_deploy_deploy_environment",
-      "web_client_github_workflows_deploy_deploy_needs",
-      "web_client_github_workflows_deploy_deploy_runs_on",
-      "web_client_github_workflows_deploy_deploy_steps",
-      "web_client_github_workflows_deploy_environment_name",
-      "web_client_github_workflows_deploy_environment_url",
-      "web_client_github_workflows_deploy_jobs",
-      "web_client_github_workflows_deploy_jobs_build",
-      "web_client_github_workflows_deploy_jobs_deploy",
-      "web_client_github_workflows_deploy_name",
-      "web_client_github_workflows_deploy_on",
-      "web_client_github_workflows_deploy_on_push",
-      "web_client_github_workflows_deploy_on_workflow_dispatch",
-      "web_client_github_workflows_deploy_permissions",
-      "web_client_github_workflows_deploy_permissions_contents",
-      "web_client_github_workflows_deploy_permissions_id_token",
-      "web_client_github_workflows_deploy_permissions_pages",
-      "web_client_github_workflows_deploy_push_branches",
-      "web_client_github_workflows_deploy_steps_id",
-      "web_client_github_workflows_deploy_steps_run",
-      "web_client_github_workflows_deploy_steps_uses",
-      "web_client_github_workflows_deploy_steps_with",
-      "web_client_github_workflows_deploy_with_cache",
-      "web_client_github_workflows_deploy_with_node_version",
-      "web_client_github_workflows_deploy_with_path"
-    ],
     "7": [
+      "github_workflows_web_client",
+      "github_workflows_web_client_build_defaults",
+      "github_workflows_web_client_build_env",
+      "github_workflows_web_client_build_runs_on",
+      "github_workflows_web_client_build_steps",
+      "github_workflows_web_client_defaults_run",
+      "github_workflows_web_client_env_vite_api_base_url",
+      "github_workflows_web_client_jobs",
+      "github_workflows_web_client_jobs_build",
+      "github_workflows_web_client_name",
+      "github_workflows_web_client_on",
+      "github_workflows_web_client_on_pull_request",
+      "github_workflows_web_client_on_push",
+      "github_workflows_web_client_on_workflow_dispatch",
+      "github_workflows_web_client_permissions",
+      "github_workflows_web_client_permissions_contents",
+      "github_workflows_web_client_pull_request_paths",
+      "github_workflows_web_client_push_branches",
+      "github_workflows_web_client_push_paths",
+      "github_workflows_web_client_run_working_directory",
+      "github_workflows_web_client_steps_name",
+      "github_workflows_web_client_steps_run",
+      "github_workflows_web_client_steps_uses",
+      "github_workflows_web_client_steps_with",
+      "github_workflows_web_client_with_cache",
+      "github_workflows_web_client_with_cache_dependency_path",
+      "github_workflows_web_client_with_name",
+      "github_workflows_web_client_with_node_version",
+      "github_workflows_web_client_with_path"
+    ],
+    "8": [
       "legacy_reference_gas_latest_analytics",
       "legacy_reference_gas_latest_analytics_getanalyticsdata",
       "legacy_reference_gas_latest_analytics_getauditlogslist",
@@ -383,116 +457,56 @@
       "legacy_reference_gas_latest_settings_updatesplashmetadata",
       "legacy_reference_gas_latest_vehicles_linkcapturetojob"
     ],
-    "8": [
-      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver",
-      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver_geofencereceiver",
-      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver_geofencereceiver_onreceive",
-      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver_geofencereceiver_pendingintent",
-      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver_kt_broadcastreceiver",
-      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver_kt_context",
-      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver_kt_intent",
-      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver_kt_pendingintent",
+    "9": [
+      "activitycompat",
+      "alertdialog",
       "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice",
-      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_geofenceservice",
-      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_geofenceservice_batterypct",
       "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_geofenceservice_onbind",
-      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_geofenceservice_oncreate",
-      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_geofenceservice_ondestroy",
-      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_geofenceservice_registergeofence",
-      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_geofenceservice_requesttelemetryfixes",
       "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_kt_intent",
-      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_kt_service",
-      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_kt_suppresslint",
-      "app_android_app_src_main_java_com_fieldops_mobile_geomath",
-      "app_android_app_src_main_java_com_fieldops_mobile_geomath_geomath",
-      "app_android_app_src_main_java_com_fieldops_mobile_geomath_geomath_breachdistancebeyondradius",
-      "app_android_app_src_main_java_com_fieldops_mobile_geomath_geomath_haversinemeters",
-      "app_android_app_src_main_java_com_fieldops_mobile_geomath_geomath_zone",
       "app_android_app_src_main_java_com_fieldops_mobile_mainactivity",
       "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_kt_appcompatactivity",
       "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_kt_bundle",
       "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_kt_suppresslint",
       "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_kt_textview",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_endjob",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_issupervisor",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_log",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_offertransitrequest",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_oncreate",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_onpause",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_onresume",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_punch",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_reasontext",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_refreshlocation",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_refreshtransitstatus",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_requestpermissions",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_requesttransit",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_showbubble",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_startjobdialog",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_toast",
-      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_togglegeofence",
-      "geofence",
-      "geofencingclient",
-      "geofencingevent",
+      "build",
+      "contextcompat",
       "geofencingrequest",
-      "handler",
       "ibinder",
+      "inputtype",
       "locationcallback",
       "locationrequest",
       "locationresult",
       "locationservices",
-      "looper",
       "manifest",
       "packagemanager",
       "priority",
       "settings",
-      "thread",
-      "uri"
-    ],
-    "9": [
-      "alertdialog",
-      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity",
-      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_kt_appcompatactivity",
-      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_kt_bundle",
-      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_kt_suppresslint",
-      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_kt_textview",
-      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_loginactivity",
-      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_loginactivity_confirmtakeover",
-      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_loginactivity_gomain",
-      "app_android_app_src_main_java_com_fieldops_mobile_loginactivity_loginactivity_oncreate",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_kt_intent",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_kt_service",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_kt_suppresslint",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_kt_textview",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_addbubble",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_currentfix",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_endjob",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_onbind",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_oncreate",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_ondestroy",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_removemenu",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_requesttransit",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_startjob",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_toast",
-      "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice_togglemenu",
-      "build",
-      "button",
-      "gravity",
-      "inputtype",
-      "linearlayout",
-      "motionevent",
-      "pixelformat",
-      "tasks",
-      "toast",
-      "view",
-      "windowmanager"
+      "toast"
     ],
     "10": [
-      "graphify_shims_api_fieldops",
-      "graphify_shims_api_fieldops_finduserbysessiontoken",
-      "graphify_shims_api_fieldops_guardsession"
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity",
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity_kt_appcompatactivity",
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity_kt_bitmap",
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity_kt_bundle",
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity_kt_suppresslint",
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity_portalactivity",
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity_portalactivity_oncreate",
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity_portalactivity_oncreate_object_onbackpressedcallback_l105",
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity_portalactivity_oncreate_object_onbackpressedcallback_l105_handleonbackpressed",
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity_portalactivity_oncreate_object_webchromeclient_l98",
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity_portalactivity_oncreate_object_webchromeclient_l98_onprogresschanged",
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity_portalactivity_oncreate_object_webviewclient_l77",
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity_portalactivity_oncreate_object_webviewclient_l77_onpagefinished",
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity_portalactivity_oncreate_object_webviewclient_l77_onpagestarted",
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity_portalactivity_oncreate_object_webviewclient_l77_shouldoverrideurlloading",
+      "app_android_app_src_main_java_com_fieldops_mobile_portalactivity_portalactivity_ondestroy",
+      "button",
+      "cookiemanager",
+      "progressbar",
+      "uri",
+      "webresourcerequest",
+      "websettings",
+      "webview"
     ],
     "11": [
       "legacy_reference_gas_latest_repo",
@@ -540,6 +554,27 @@
       "legacy_reference_gas_latest_masters_resetmastercaches"
     ],
     "13": [
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_endjob",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_issupervisor",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_log",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_offertransitrequest",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_oncreate",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_onpause",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_onresume",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_punch",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_reasontext",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_refreshlocation",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_refreshtransitstatus",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_requestpermissions",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_requesttransit",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_showbubble",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_startbubbleservice",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_startjobdialog",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_toast",
+      "app_android_app_src_main_java_com_fieldops_mobile_mainactivity_mainactivity_togglegeofence"
+    ],
+    "14": [
       "app_src_api",
       "app_src_api_currenttoken",
       "app_src_api_getapibaseurl",
@@ -560,7 +595,7 @@
       "ref_react_native_net",
       "ref_services_index_js"
     ],
-    "14": [
+    "15": [
       "ref_react_dom",
       "ref_vite",
       "ref_vitejs_plugin_react",
@@ -581,7 +616,28 @@
       "web_client_package_version",
       "web_client_vite_config"
     ],
-    "15": [
+    "16": [
+      "tests_t_num",
+      "tests_t_num_all",
+      "tests_t_num_api",
+      "tests_t_num_bad",
+      "tests_t_num_chkcapture",
+      "tests_t_num_chkcomp",
+      "tests_t_num_chkcompseq",
+      "tests_t_num_chkdup",
+      "tests_t_num_chkimmut",
+      "tests_t_num_chkjob",
+      "tests_t_num_chkseqinc",
+      "tests_t_num_failures",
+      "tests_t_num_fn",
+      "tests_t_num_istyy",
+      "tests_t_num_line",
+      "tests_t_num_ok",
+      "tests_t_num_setup",
+      "tests_t_num_showerr",
+      "tests_t_num_state"
+    ],
+    "17": [
       "legacy_reference_gas_latest_rbac",
       "legacy_reference_gas_latest_rbac_canseerow",
       "legacy_reference_gas_latest_rbac_defaultscope",
@@ -601,7 +657,7 @@
       "legacy_reference_gas_latest_rbac_rolerank",
       "legacy_reference_gas_latest_rbac_sessionexpiry"
     ],
-    "16": [
+    "18": [
       "app_src_api_createrecord",
       "app_src_api_listrecords",
       "app_src_api_updaterecord",
@@ -619,7 +675,7 @@
       "app_src_services_holdstate_holdstateservice_getholdhistory",
       "app_src_services_holdstate_holdstateservice_resumejob"
     ],
-    "17": [
+    "19": [
       "app_src_config_job_code_prefix",
       "app_src_config_job_status",
       "app_src_screens_jobcardscreen",
@@ -637,7 +693,7 @@
       "app_src_services_watermark_watermarkservice_generatejobcode",
       "ref_services_camera_cameramodal"
     ],
-    "18": [
+    "20": [
       "legacy_reference_gas_latest_attendance",
       "legacy_reference_gas_latest_attendance_attendancecheckin",
       "legacy_reference_gas_latest_attendance_attendancecheckout",
@@ -655,7 +711,7 @@
       "legacy_reference_gas_latest_attendance_storeproofphoto",
       "legacy_reference_gas_latest_attendance_summariseattendance"
     ],
-    "19": [
+    "21": [
       "legacy_reference_gas_latest_vehicles",
       "legacy_reference_gas_latest_vehicles_capturefeed",
       "legacy_reference_gas_latest_vehicles_capturerow",
@@ -673,7 +729,24 @@
       "legacy_reference_gas_latest_vehicles_vehicleupdate",
       "legacy_reference_gas_latest_vehicles_vehicleupsert"
     ],
-    "20": [
+    "22": [
+      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver",
+      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver_geofencereceiver",
+      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver_geofencereceiver_onreceive",
+      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver_geofencereceiver_pendingintent",
+      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver_kt_broadcastreceiver",
+      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver_kt_context",
+      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver_kt_intent",
+      "app_android_app_src_main_java_com_fieldops_mobile_geofencereceiver_kt_pendingintent",
+      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_geofenceservice_ondestroy",
+      "app_android_app_src_main_java_com_fieldops_mobile_geomath",
+      "app_android_app_src_main_java_com_fieldops_mobile_geomath_geomath",
+      "app_android_app_src_main_java_com_fieldops_mobile_geomath_geomath_breachdistancebeyondradius",
+      "app_android_app_src_main_java_com_fieldops_mobile_geomath_geomath_zone",
+      "geofence",
+      "geofencingevent"
+    ],
+    "23": [
       "app_src_app",
       "app_src_app_app",
       "app_src_app_homestack",
@@ -690,13 +763,7 @@
       "ref_src_screens_reportsscreen",
       "ref_src_screens_vehiclesscreen"
     ],
-    "21": [
-      "graphify_shims_geofence_check"
-    ],
-    "22": [
-      "graphify_shims_job_tat_calculator"
-    ],
-    "23": [
+    "24": [
       "app_src_config",
       "app_src_config_attendance_actions",
       "app_src_config_config",
@@ -710,7 +777,7 @@
       "app_src_screens_vehiclesscreen",
       "ref_react_native"
     ],
-    "24": [
+    "25": [
       "legacy_reference_gas_latest_auth",
       "legacy_reference_gas_latest_auth_admincreateuser",
       "legacy_reference_gas_latest_auth_adminsetpassword",
@@ -724,7 +791,7 @@
       "legacy_reference_gas_latest_auth_sessionprofile",
       "legacy_reference_gas_latest_auth_wouldcreatecycle"
     ],
-    "25": [
+    "26": [
       "legacy_reference_gas_latest_reminders",
       "legacy_reference_gas_latest_reminders_getreminders",
       "legacy_reference_gas_latest_reminders_logreminder",
@@ -738,7 +805,7 @@
       "legacy_reference_gas_latest_reminders_savereminder",
       "legacy_reference_gas_latest_reminders_updatereminderstatus"
     ],
-    "26": [
+    "27": [
       "legacy_reference_gas_latest_tasks",
       "legacy_reference_gas_latest_tasks_assertassignableuser",
       "legacy_reference_gas_latest_tasks_assertvehicleexists",
@@ -751,7 +818,7 @@
       "legacy_reference_gas_latest_tasks_tasktojson",
       "legacy_reference_gas_latest_tasks_updatetaskstatusrecord"
     ],
-    "27": [
+    "28": [
       "app_src_services_camera",
       "app_src_services_camera_camera",
       "app_src_services_camera_cameraservice",
@@ -763,7 +830,7 @@
       "ref_location",
       "ref_react_native_vision_camera"
     ],
-    "28": [
+    "29": [
       "app_src_services_location",
       "app_src_services_location_locationservice",
       "app_src_services_location_locationservice_constructor",
@@ -775,7 +842,18 @@
       "app_src_services_location_locationservice_validateforaction",
       "app_src_services_location_max_accuracy_meters"
     ],
-    "29": [
+    "30": [
+      "app_android_app_src_main_java_com_fieldops_mobile_api_api_isttoday",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_fail",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_ismock",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_requesttransit",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_savecapture",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_submit",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_submitattendance",
+      "app_android_app_src_main_java_com_fieldops_mobile_cameraocractivity_cameraocractivity_submitjob",
+      "app_android_app_src_main_java_com_fieldops_mobile_geomath_geomath_haversinemeters"
+    ],
+    "31": [
       "legacy_reference_gas_latest_appsscript",
       "legacy_reference_gas_latest_appsscript_dependencies",
       "legacy_reference_gas_latest_appsscript_exceptionlogging",
@@ -786,7 +864,7 @@
       "legacy_reference_gas_latest_appsscript_webapp_access",
       "legacy_reference_gas_latest_appsscript_webapp_executeas"
     ],
-    "30": [
+    "32": [
       "legacy_reference_gas_latest_firebase",
       "legacy_reference_gas_latest_firebase_base64url",
       "legacy_reference_gas_latest_firebase_base64urlbytes",
@@ -797,7 +875,7 @@
       "legacy_reference_gas_latest_firebase_firebasemirrorvehicle",
       "legacy_reference_gas_latest_firebase_firebasepush"
     ],
-    "31": [
+    "33": [
       "ref_crypto",
       "tests_test_roaming",
       "tests_test_roaming_api",
@@ -808,10 +886,17 @@
       "tests_test_roaming_makeuser",
       "tests_test_roaming_sha256"
     ],
-    "32": [
-      "graphify_shims_mobile_api"
+    "34": [
+      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_geofenceservice",
+      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_geofenceservice_batterypct",
+      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_geofenceservice_oncreate",
+      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_geofenceservice_registergeofence",
+      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_geofenceservice_requesttelemetryfixes",
+      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_kt_service",
+      "app_android_app_src_main_java_com_fieldops_mobile_geofenceservice_kt_suppresslint",
+      "geofencingclient"
     ],
-    "33": [
+    "35": [
       "tests_test_e2e",
       "tests_test_e2e_check",
       "tests_test_e2e_geofencecheck",
@@ -821,7 +906,7 @@
       "tests_test_e2e_run",
       "tests_test_e2e_seatlimitcheck"
     ],
-    "34": [
+    "36": [
       "tests_test_integration",
       "tests_test_integration_api",
       "tests_test_integration_assert",
@@ -831,10 +916,7 @@
       "tests_test_integration_main",
       "tests_test_integration_pass"
     ],
-    "35": [
-      "graphify_shims_seat_limit"
-    ],
-    "36": [
+    "37": [
       "legacy_reference_gas_latest_code",
       "legacy_reference_gas_latest_code_callwebapp",
       "legacy_reference_gas_latest_code_doget",
@@ -842,154 +924,181 @@
       "legacy_reference_gas_latest_code_healthcheck",
       "legacy_reference_gas_latest_code_include"
     ],
-    "37": [
+    "38": [
       "legacy_reference_gas_latest_audit",
       "legacy_reference_gas_latest_audit_assertnoidentityoverride",
       "legacy_reference_gas_latest_audit_auditaccessdenied",
       "legacy_reference_gas_latest_audit_auditidentitymismatch",
       "legacy_reference_gas_latest_audit_writeaudit"
     ],
-    "38": [
+    "39": [
       "legacy_reference_gas_latest_dynamicforms",
       "legacy_reference_gas_latest_dynamicforms_getdynamicforms",
       "legacy_reference_gas_latest_dynamicforms_getformsregistrystore",
       "legacy_reference_gas_latest_dynamicforms_savedynamicfield",
       "legacy_reference_gas_latest_dynamicforms_validation_role"
     ],
-    "39": [
+    "40": [
       "legacy_reference_gas_latest_seed",
       "legacy_reference_gas_latest_seed_applyprooffolders",
       "legacy_reference_gas_latest_seed_clearsampledata",
       "legacy_reference_gas_latest_seed_ensuremigrated",
       "legacy_reference_gas_latest_seed_seedsampledata"
     ],
-    "40": [
+    "41": [
       "legacy_reference_gas_latest_telemetry",
       "legacy_reference_gas_latest_telemetry_geofenceevent",
       "legacy_reference_gas_latest_telemetry_gettelemetry",
       "legacy_reference_gas_latest_telemetry_telemetrybatch",
       "legacy_reference_gas_latest_telemetry_touchvehiclelastseen"
     ],
-    "41": [
+    "42": [
       "app_android_gradlew",
       "app_android_gradlew__entry",
       "app_android_gradlew_die",
       "app_android_gradlew_warn"
     ],
-    "42": [
+    "43": [
       "backend_seed_schema",
       "backend_seed_schema_api",
       "backend_seed_schema_base",
       "backend_seed_schema_main"
     ],
-    "43": [
-      "backend_pb_hooks_api_fieldops_pb",
-      "backend_pb_hooks_api_fieldops_pb_finduserbysessiontoken",
-      "backend_pb_hooks_api_fieldops_pb_guardsession"
-    ],
     "44": [
+      "graphify_shims_api_fieldops",
+      "graphify_shims_api_fieldops_finduserbysessiontoken",
+      "graphify_shims_api_fieldops_guardsession"
+    ],
+    "45": [
       "legacy_reference_gas_latest_financialclosing",
       "legacy_reference_gas_latest_financialclosing_nextfiscalyear",
       "legacy_reference_gas_latest_financialclosing_runfinancialclosing"
     ],
-    "45": [
+    "46": [
       "backend_deploy_deploy_oci",
       "backend_deploy_deploy_oci_sh__entry"
     ],
-    "46": [
+    "47": [
       "app_android_app_build_gradle"
     ],
-    "47": [
+    "48": [
       "app_android_build_gradle"
     ],
-    "48": [
+    "49": [
       "app_android_settings_gradle"
     ],
-    "49": [
-      "backend_pb_hooks_geofence_check_pb"
-    ],
     "50": [
-      "backend_pb_hooks_job_tat_calculator_pb"
+      "backend_pb_hooks_api_fieldops_pb"
     ],
     "51": [
-      "backend_pb_hooks_mobile_api_pb"
+      "backend_pb_hooks_geofence_check_pb"
     ],
     "52": [
-      "backend_pb_hooks_seat_limit_pb"
+      "backend_pb_hooks_job_tat_calculator_pb"
     ],
     "53": [
-      "backend_pb_migrations_1700000000_init_fieldops_schema"
+      "backend_pb_hooks_mobile_api_pb"
     ],
     "54": [
-      "backend_pb_migrations_1700000002_attendance_ist_date"
+      "backend_pb_hooks_record_defaults_complaints_pb"
     ],
     "55": [
-      "backend_pb_migrations_1700000003_roaming_requests"
+      "backend_pb_hooks_record_defaults_job_cards_pb"
     ],
     "56": [
-      "backend_pb_migrations_9999999_probe"
+      "backend_pb_hooks_seat_limit_pb"
     ],
     "57": [
-      "scripts_build_apk"
+      "backend_pb_migrations_1700000000_init_fieldops_schema"
     ],
     "58": [
-      "scripts_deploy_backend_cloud"
+      "backend_pb_migrations_1700000002_attendance_ist_date"
     ],
     "59": [
-      "scripts_run_local_tests"
+      "backend_pb_migrations_1700000003_roaming_requests"
     ],
     "60": [
-      "scripts_setup_new_device"
+      "backend_pb_migrations_1700000020_numbering_and_proof_ledger"
     ],
     "61": [
+      "backend_pb_migrations_9999999_probe"
+    ],
+    "62": [
+      "graphify_shims_geofence_check"
+    ],
+    "63": [
+      "graphify_shims_job_tat_calculator"
+    ],
+    "64": [
+      "graphify_shims_mobile_api"
+    ],
+    "65": [
+      "graphify_shims_seat_limit"
+    ],
+    "66": [
+      "scripts_build_apk"
+    ],
+    "67": [
+      "scripts_deploy_backend_cloud"
+    ],
+    "68": [
+      "scripts_deploy_frontend_cloud"
+    ],
+    "69": [
+      "scripts_run_local_tests"
+    ],
+    "70": [
+      "scripts_setup_new_device"
+    ],
+    "71": [
       "scripts_sync_graph_shims"
     ]
   },
   "cohesion": {
-    "0": 0.08655083655083655,
-    "1": 0.08144796380090498,
-    "2": 0.14268292682926828,
-    "3": 0.08571428571428572,
-    "4": 0.10483870967741936,
-    "5": 0.07681365576102418,
-    "6": 0.06666666666666667,
-    "7": 0.14,
-    "8": 0.056051587301587304,
-    "9": 0.0953058321479374,
-    "10": 1.0,
+    "0": 0.11108456760630674,
+    "1": 0.06164383561643835,
+    "2": 0.06487434248977206,
+    "3": 0.10530612244897959,
+    "4": 0.07862679955703211,
+    "5": 0.08412698412698413,
+    "6": 0.10483870967741936,
+    "7": 0.06896551724137931,
+    "8": 0.14,
+    "9": 0.10507246376811594,
+    "10": 0.1422924901185771,
     "11": 0.16666666666666666,
     "12": 0.2736842105263158,
-    "13": 0.16374269005847952,
-    "14": 0.1286549707602339,
-    "15": 0.1568627450980392,
-    "16": 0.23333333333333334,
-    "17": 0.14166666666666666,
+    "13": 0.24561403508771928,
+    "14": 0.16374269005847952,
+    "15": 0.1286549707602339,
+    "16": 0.3216374269005848,
+    "17": 0.1568627450980392,
     "18": 0.23333333333333334,
-    "19": 0.275,
-    "20": 0.13333333333333333,
-    "21": 1.0,
-    "22": 1.0,
-    "23": 0.2727272727272727,
-    "24": 0.21212121212121213,
-    "25": 0.3939393939393939,
-    "26": 0.45454545454545453,
-    "27": 0.2,
-    "28": 0.3111111111111111,
-    "29": 0.2222222222222222,
-    "30": 0.4166666666666667,
-    "31": 0.3333333333333333,
-    "32": 1.0,
-    "33": 0.42857142857142855,
-    "34": 0.42857142857142855,
-    "35": 1.0,
-    "36": 0.4,
-    "37": 0.7,
+    "19": 0.14166666666666666,
+    "20": 0.23333333333333334,
+    "21": 0.275,
+    "22": 0.18095238095238095,
+    "23": 0.13333333333333333,
+    "24": 0.2727272727272727,
+    "25": 0.21212121212121213,
+    "26": 0.3939393939393939,
+    "27": 0.45454545454545453,
+    "28": 0.2,
+    "29": 0.3111111111111111,
+    "30": 0.3611111111111111,
+    "31": 0.2222222222222222,
+    "32": 0.4166666666666667,
+    "33": 0.3333333333333333,
+    "34": 0.35714285714285715,
+    "35": 0.42857142857142855,
+    "36": 0.42857142857142855,
+    "37": 0.4,
     "38": 0.7,
-    "39": 0.5,
+    "39": 0.7,
     "40": 0.5,
-    "41": 0.8333333333333334,
-    "42": 0.6666666666666666,
-    "43": 1.0,
+    "41": 0.5,
+    "42": 0.8333333333333334,
+    "43": 0.6666666666666666,
     "44": 1.0,
     "45": 1.0,
     "46": 1.0,
@@ -1007,7 +1116,17 @@
     "58": 1.0,
     "59": 1.0,
     "60": 1.0,
-    "61": 1.0
+    "61": 1.0,
+    "62": 1.0,
+    "63": 1.0,
+    "64": 1.0,
+    "65": 1.0,
+    "66": 1.0,
+    "67": 1.0,
+    "68": 1.0,
+    "69": 1.0,
+    "70": 1.0,
+    "71": 1.0
   },
   "gods": [
     {
@@ -1018,12 +1137,17 @@
     {
       "id": "app_android_app_src_main_java_com_fieldops_mobile_api_api",
       "label": "Api",
-      "degree": 43
+      "degree": 46
     },
     {
       "id": "web_client_src_components_btn",
       "label": "Btn()",
       "degree": 32
+    },
+    {
+      "id": "app_android_app_src_main_java_com_fieldops_mobile_overlaybubbleservice_overlaybubbleservice",
+      "label": "OverlayBubbleService",
+      "degree": 30
     },
     {
       "id": "web_client_src_components_card",
@@ -1054,36 +1178,9 @@
       "id": "ref_react",
       "label": "react",
       "degree": 25
-    },
-    {
-      "id": "web_client_src_components_usetoast",
-      "label": "useToast()",
-      "degree": 24
     }
   ],
   "surprises": [
-    {
-      "source": "ApiError",
-      "target": "PbError",
-      "source_files": [
-        "web-client/src/api.js",
-        "web-client/src/lib/pb.js"
-      ],
-      "confidence": "EXTRACTED",
-      "relation": "inherits",
-      "why": "bridges separate communities"
-    },
-    {
-      "source": "call()",
-      "target": "pbCall()",
-      "source_files": [
-        "web-client/src/api.js",
-        "web-client/src/lib/pb.js"
-      ],
-      "confidence": "EXTRACTED",
-      "relation": "calls",
-      "why": "bridges separate communities"
-    },
     {
       "source": "poll()",
       "target": "call()",
@@ -1093,66 +1190,88 @@
       ],
       "confidence": "EXTRACTED",
       "relation": "calls",
-      "why": "peripheral node `poll()` unexpectedly reaches hub `call()`"
+      "why": "bridges separate communities; peripheral node `poll()` unexpectedly reaches hub `call()`"
     },
     {
-      "source": "setPassword()",
-      "target": "call()",
+      "source": "performCheckIn()",
+      "target": "login()",
       "source_files": [
-        "web-client/src/pages/Admin.jsx",
-        "web-client/src/api.js"
+        "app/src/screens/AttendanceScreen.js",
+        "app/src/api.js"
       ],
       "confidence": "EXTRACTED",
       "relation": "calls",
-      "why": "peripheral node `setPassword()` unexpectedly reaches hub `call()`"
+      "why": "peripheral node `performCheckIn()` unexpectedly reaches hub `login()`"
     },
     {
-      "source": "save()",
-      "target": "call()",
+      "source": "handleLogin()",
+      "target": "login()",
       "source_files": [
-        "web-client/src/pages/Admin.jsx",
-        "web-client/src/api.js"
+        "app/src/screens/LoginScreen.js",
+        "app/src/api.js"
       ],
       "confidence": "EXTRACTED",
       "relation": "calls",
-      "why": "peripheral node `save()` unexpectedly reaches hub `call()`"
+      "why": "peripheral node `handleLogin()` unexpectedly reaches hub `login()`"
+    },
+    {
+      "source": "loadAnalytics()",
+      "target": "listRecords()",
+      "source_files": [
+        "app/src/screens/ReportsScreen.js",
+        "app/src/api.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "peripheral node `loadAnalytics()` unexpectedly reaches hub `listRecords()`"
+    },
+    {
+      "source": "loadAuditLogs()",
+      "target": "listRecords()",
+      "source_files": [
+        "app/src/screens/ReportsScreen.js",
+        "app/src/api.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "peripheral node `loadAuditLogs()` unexpectedly reaches hub `listRecords()`"
     }
   ],
   "questions": [
     {
       "type": "bridge_node",
-      "question": "Why does `react` connect `call` to `app/src/api.js`, `package.json`, `JobCardScreen.js`, `App.js`, `app/src/config.js`?",
-      "why": "High betweenness centrality (0.058) - this node is a cross-community bridge."
+      "question": "Why does `react` connect `Community 0` to `Community 1`, `Community 14`, `Community 15`, `Community 19`, `Community 23`, `Community 24`?",
+      "why": "High betweenness centrality (0.047) - this node is a cross-community bridge."
     },
     {
       "type": "verify_inferred",
-      "question": "Are the 15 inferred relationships involving `Api` (e.g. with `.saveCapture()` and `.onReceive()`) actually correct?",
-      "why": "`Api` has 15 INFERRED edges - model-reasoned connections that need verification."
+      "question": "Are the 18 inferred relationships involving `Api` (e.g. with `.requestTransit()` and `.saveCapture()`) actually correct?",
+      "why": "`Api` has 18 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `ATTENDANCE`, `JOB`, `CAPTURE` to the rest of the system?",
+      "why": "7 weakly-connected nodes found - possible missing edges."
     },
     {
       "type": "low_cohesion",
-      "question": "Should `call` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.08655083655083655 - nodes in this community are weakly interconnected."
+      "question": "Should `Community 0` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.11108456760630674 - nodes in this community are weakly interconnected."
     },
     {
       "type": "bridge_node",
-      "question": "Why does `Api` connect `Api` to `MainActivity.kt`, `OverlayBubbleService.kt`, `Notify.kt`, `CameraOcrActivity.kt`?",
-      "why": "High betweenness centrality (0.026) - this node is a cross-community bridge."
+      "question": "Why does `Api` connect `Community 3` to `Community 2`, `Community 4`, `Community 13`, `Community 22`, `Community 30`?",
+      "why": "High betweenness centrality (0.030) - this node is a cross-community bridge."
     },
     {
       "type": "low_cohesion",
-      "question": "Should `pb.js` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.08144796380090498 - nodes in this community are weakly interconnected."
-    },
-    {
-      "type": "bridge_node",
-      "question": "Why does `call()` connect `call` to `pb.js`?",
-      "why": "High betweenness centrality (0.013) - this node is a cross-community bridge."
+      "question": "Should `Community 1` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.06164383561643835 - nodes in this community are weakly interconnected."
     },
     {
       "type": "low_cohesion",
-      "question": "Should `Api` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.14268292682926828 - nodes in this community are weakly interconnected."
+      "question": "Should `Community 2` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.06487434248977206 - nodes in this community are weakly interconnected."
     }
   ]
 }
