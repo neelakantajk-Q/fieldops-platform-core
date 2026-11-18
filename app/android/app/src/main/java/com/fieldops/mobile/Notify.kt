@@ -6,6 +6,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 
@@ -53,7 +55,15 @@ object Notify {
             .build()
 
     private fun notify(ctx: Context, id: Int, n: Notification) {
-        try { NotificationManagerCompat.from(ctx).notify(id, n) } catch (e: SecurityException) { /* no permission */ }
+        try {
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                NotificationManagerCompat.from(ctx).notify(id, n)
+            } else {
+                Handler(Looper.getMainLooper()).post {
+                    try { NotificationManagerCompat.from(ctx).notify(id, n) } catch (e: SecurityException) {}
+                }
+            }
+        } catch (e: SecurityException) { /* no permission */ }
     }
 
     fun cancel(ctx: Context, id: Int) {

@@ -30,19 +30,33 @@ class LoginActivity : AppCompatActivity() {
 
         etBase.setText(Prefs.baseUrl)
 
+        findViewById<TextView>(R.id.tvAdvanced).setOnClickListener {
+            val show = etBase.visibility != View.VISIBLE
+            etBase.visibility = if (show) View.VISIBLE else View.GONE
+            if (show) etBase.requestFocus()
+        }
+
+        findViewById<TextView>(R.id.tvForgot).setOnClickListener {
+            Toast.makeText(
+                this,
+                "Demo accounts: admin/admin · mod/1 · user1/password",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+
         btn.setOnClickListener {
             val base = etBase.text.toString().trim()
             if (base.isNotEmpty()) Prefs.baseUrl = base
             val user = etUser.text.toString().trim()
             val pass = etPass.text.toString()
             if (user.isEmpty() || pass.isEmpty()) {
-                status.text = "Username and password required."; return@setOnClickListener
+                showError("Enter your username and password."); return@setOnClickListener
             }
             btn.isEnabled = false
-            status.text = "Signing in…"
+            showInfo("Signing in…")
             thread {
                 try {
-                    val resp = Api().login(user, pass, force = false)
+                    Api().login(user, pass, force = false)
                     runOnUiThread { goMain() }
                 } catch (e: Api.ApiError) {
                     runOnUiThread {
@@ -50,17 +64,31 @@ class LoginActivity : AppCompatActivity() {
                         if (e.code == 409) {
                             confirmTakeover(user, pass, btn)
                         } else {
-                            status.text = e.message ?: "Sign-in failed."
+                            showError(e.message ?: "Sign-in failed.")
                         }
                     }
                 } catch (e: Exception) {
                     runOnUiThread {
                         btn.isEnabled = true
-                        status.text = "Cannot reach server: ${e.message}"
+                        showError("Cannot reach server: ${e.message}")
                     }
                 }
             }
         }
+    }
+
+    private fun showError(msg: String) {
+        status.text = msg
+        status.setTextColor(0xFFB91C1C.toInt())
+        status.setBackgroundResource(R.drawable.banner_bg)
+        status.visibility = View.VISIBLE
+    }
+
+    private fun showInfo(msg: String) {
+        status.text = msg
+        status.setTextColor(0xFF64748B.toInt())
+        status.setBackgroundColor(0x00000000)
+        status.visibility = View.VISIBLE
     }
 
     private fun confirmTakeover(user: String, pass: String, btn: Button) {
@@ -74,7 +102,7 @@ class LoginActivity : AppCompatActivity() {
                         Api().login(user, pass, force = true)
                         runOnUiThread { goMain() }
                     } catch (e: Exception) {
-                        runOnUiThread { btn.isEnabled = true; status.text = e.message }
+                        runOnUiThread { btn.isEnabled = true; showError(e.message ?: "Sign-in failed.") }
                     }
                 }
             }

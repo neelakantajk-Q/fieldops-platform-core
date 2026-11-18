@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent">
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="#000000">
 
     <androidx.camera.view.PreviewView
         android:id="@+id/previewView"
@@ -8,20 +9,71 @@
 
     <LinearLayout
         android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical"
+        android:padding="16dp" android:background="#66000000">
+
+        <TextView
+            android:id="@+id/btnClose"
+            android:layout_width="40dp" android:layout_height="40dp"
+            android:text="&#10005;" android:textSize="18sp" android:textColor="#FFFFFF"
+            android:gravity="center" android:background="@drawable/chip_bg" />
+
+        <LinearLayout
+            android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:orientation="vertical"
+            android:layout_marginStart="12dp">
+
+            <TextView
+                android:id="@+id/tvTitle"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="Capture proof" android:textSize="16sp"
+                android:textStyle="bold" android:textColor="#FFFFFF" />
+
+            <TextView
+                android:id="@+id/tvSubtitle"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="Geotagged · watermarked · verifiable"
+                android:textSize="11sp" android:textColor="#A7F3D0" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="vertical" android:layout_gravity="bottom"
-        android:background="#AA000000" android:padding="12dp">
+        android:background="@drawable/camera_sheet_bg"
+        android:paddingStart="18dp" android:paddingEnd="18dp"
+        android:paddingTop="16dp" android:paddingBottom="20dp">
+
+        <TextView
+            android:id="@+id/tvModeChip"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="ATTENDANCE" android:textSize="10sp" android:textStyle="bold"
+            android:letterSpacing="0.12" android:textColor="@color/fo_on_green"
+            android:background="@drawable/chip_lime" android:paddingStart="10dp"
+            android:paddingEnd="10dp" android:paddingTop="5dp" android:paddingBottom="5dp" />
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Align the frame and capture." android:textSize="12sp"
+            android:textColor="#CBD5E1" android:paddingTop="10dp" android:paddingBottom="8dp" />
 
         <EditText
             android:id="@+id/etPlate"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:hint="Plate (OCR fills this)" android:textColor="#FFFFFF"
-            android:textColorHint="#88FFFFFF" android:inputType="text" />
+            android:layout_width="match_parent" android:layout_height="46dp"
+            android:background="@drawable/input_dark_bg"
+            android:hint="Vehicle plate (OCR fills this)" android:textSize="14sp"
+            android:textColor="#FFFFFF" android:textColorHint="#7C8AA5"
+            android:inputType="textCapCharacters" android:maxLines="1"
+            android:paddingStart="14dp" android:paddingEnd="14dp"
+            android:layout_marginBottom="10dp" />
 
         <TextView
             android:id="@+id/tvOcr"
             android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="OCR: —" android:textColor="#FFD54F" android:textSize="12sp"
-            android:paddingTop="4dp" android:paddingBottom="8dp" />
+            android:text="" android:textSize="11sp" android:textColor="#FCD34D"
+            android:maxLines="2" android:ellipsize="end"
+            android:paddingBottom="10dp" />
 
         <LinearLayout
             android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -29,15 +81,18 @@
 
             <Button
                 android:id="@+id/btnShutter"
+                style="@style/FoButton"
                 android:layout_width="0dp" android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:text="CAPTURE" android:backgroundTint="#EF6C00" />
+                android:layout_height="48dp"
+                android:text="CAPTURE" android:textColor="@color/fo_ink"
+                android:backgroundTint="@color/fo_lime" />
 
             <Button
                 android:id="@+id/btnUpload"
+                style="@style/FoButton"
                 android:layout_width="0dp" android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:text="SAVE CAPTURE" android:backgroundTint="#2E7D32" />
+                android:layout_height="48dp" android:layout_marginStart="10dp"
+                android:text="SUBMIT" android:backgroundTint="@color/fo_green" />
         </LinearLayout>
     </LinearLayout>
 </FrameLayout>

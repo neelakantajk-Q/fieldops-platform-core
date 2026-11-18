@@ -1,116 +1,226 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent"
-    android:fillViewport="true" android:background="#F2F5F9">
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:fillViewport="true" android:background="@color/fo_bg"
+        android:paddingBottom="24dp">
 
     <LinearLayout
         android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="vertical" android:padding="20dp">
+        android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/tvUser"
+        <!-- Header -->
+        <LinearLayout
             android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="—" android:textSize="18sp" android:textStyle="bold"
-            android:textColor="#1B3A5C" />
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:background="@drawable/header_bg"
+            android:paddingStart="20dp" android:paddingEnd="20dp"
+            android:paddingTop="22dp" android:paddingBottom="20dp">
 
-        <TextView
-            android:id="@+id/tvHub"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="—" android:textSize="13sp" android:textColor="#5A6B7C"
-            android:paddingBottom="8dp" />
+            <ImageView
+                android:layout_width="48dp" android:layout_height="48dp"
+                android:src="@drawable/brand_mark" android:scaleType="fitCenter"
+                android:contentDescription="Quantum FieldOps" />
 
-        <TextView
-            android:id="@+id/tvZone"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="Zone: —" android:textSize="15sp" android:textStyle="bold"
-            android:paddingBottom="16dp" />
+            <LinearLayout
+                android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="wrap_content" android:orientation="vertical"
+                android:layout_marginStart="14dp">
 
-        <TextView
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="ATTENDANCE (geofence-validated, strict radius)"
-            android:textSize="12sp" android:textStyle="bold" android:textColor="#5A6B7C"
-            android:paddingBottom="6dp" />
+                <TextView
+                    android:id="@+id/tvUser"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="" android:textSize="17sp" android:textStyle="bold"
+                    android:textColor="@color/fo_white" />
+
+                <TextView
+                    android:id="@+id/tvHub"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="" android:textSize="12sp" android:textColor="#C7F9D9" />
+            </LinearLayout>
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="vertical" android:padding="16dp">
+
+            <!-- Zone / transit -->
+            <LinearLayout
+                style="@style/FoCard"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvZone"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Zone: —" android:textSize="14sp" android:textStyle="bold"
+                    android:textColor="@color/fo_text" android:lineSpacingExtra="3dp" />
+            </LinearLayout>
+
+            <!-- Attendance -->
+            <LinearLayout
+                style="@style/FoCard"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:layout_marginTop="12dp">
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="ATTENDANCE"
+                    style="@style/FoSectionLabel" />
+
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnCheckIn"
+                        style="@style/FoButton"
+                        android:layout_width="0dp" android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:text="CHECK IN" android:backgroundTint="@color/fo_green" />
+
+                    <Button
+                        android:id="@+id/btnCheckOut"
+                        style="@style/FoButton"
+                        android:layout_width="0dp" android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:text="CHECK OUT" android:backgroundTint="@color/fo_danger" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Jobs -->
+            <LinearLayout
+                style="@style/FoCard"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:layout_marginTop="12dp">
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="JOB CARD"
+                    style="@style/FoSectionLabel" />
+
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnStartJob"
+                        style="@style/FoButton"
+                        android:layout_width="0dp" android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:text="START JOB" android:backgroundTint="@color/fo_blue" />
+
+                    <Button
+                        android:id="@+id/btnEndJob"
+                        style="@style/FoButton"
+                        android:layout_width="0dp" android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:text="END JOB" android:backgroundTint="@color/fo_green_dark" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnHoldJob"
+                    style="@style/FoButton"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="HOLD JOB"
+                    android:backgroundTint="@color/fo_warning" />
+            </LinearLayout>
+
+            <!-- Team & performance -->
+            <LinearLayout
+                style="@style/FoCard"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:layout_marginTop="12dp">
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="TEAM &amp; PERFORMANCE"
+                    style="@style/FoSectionLabel" />
+
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnTeam"
+                        style="@style/FoButton"
+                        android:layout_width="0dp" android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:text="TEAM" android:backgroundTint="@color/fo_blue" />
+
+                    <Button
+                        android:id="@+id/btnPerformance"
+                        style="@style/FoButton"
+                        android:layout_width="0dp" android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:text="HUB &amp; PEER" android:backgroundTint="@color/fo_ink" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Tools -->
+            <LinearLayout
+                style="@style/FoCard"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:layout_marginTop="12dp">
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="FIELD OPERATIONS"
+                    style="@style/FoSectionLabel" />
+
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnBubble"
+                        style="@style/FoButton"
+                        android:layout_width="0dp" android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:text="FIELD BUBBLES" android:textColor="@color/fo_on_green"
+                        android:backgroundTint="@color/fo_wa_green" />
+
+                    <Button
+                        android:id="@+id/btnGeo"
+                        style="@style/FoButton"
+                        android:layout_width="0dp" android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:text="GEOFENCE" android:backgroundTint="@color/fo_green" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnCapture"
+                    style="@style/FoButton"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="CAPTURE PROOF"
+                    android:backgroundTint="@color/fo_warning" />
+
+                <Button
+                    android:id="@+id/btnPortal"
+                    style="@style/FoButton"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="HRMS DASHBOARD"
+                    android:backgroundTint="@color/fo_ink" />
+            </LinearLayout>
 
             <Button
-                android:id="@+id/btnCheckIn"
-                android:layout_width="0dp" android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:text="CHECK IN" android:backgroundTint="#2E7D32" />
+                android:id="@+id/btnLogout"
+                style="@style/FoButton"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="SIGN OUT" android:backgroundTint="@color/fo_muted" />
 
-            <Button
-                android:id="@+id/btnCheckOut"
-                android:layout_width="0dp" android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:text="CHECK OUT" android:backgroundTint="#C62828" />
+            <TextView
+                android:id="@+id/tvLog"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="" android:textSize="11sp" android:textColor="@color/fo_text"
+                android:paddingTop="14dp" android:typeface="monospace" />
         </LinearLayout>
-
-        <TextView
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="JOBS"
-            android:textSize="12sp" android:textStyle="bold" android:textColor="#5A6B7C"
-            android:paddingTop="14dp" android:paddingBottom="6dp" />
-
-        <LinearLayout
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/btnStartJob"
-                android:layout_width="0dp" android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:text="START JOB" android:backgroundTint="#1565C0" />
-
-            <Button
-                android:id="@+id/btnEndJob"
-                android:layout_width="0dp" android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:text="END JOB" android:backgroundTint="#6A1B9A" />
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="SERVICES"
-            android:textSize="12sp" android:textStyle="bold" android:textColor="#5A6B7C"
-            android:paddingTop="14dp" android:paddingBottom="6dp" />
-
-        <LinearLayout
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/btnBubble"
-                android:layout_width="0dp" android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:text="SHOW BUBBLE" android:backgroundTint="#1B3A5C" />
-
-            <Button
-                android:id="@+id/btnGeo"
-                android:layout_width="0dp" android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:text="GEOFENCE ON" android:backgroundTint="#00695C" />
-        </LinearLayout>
-
-        <Button
-            android:id="@+id/btnCapture"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="CAPTURE / OCR (vehicle plate + odometer)"
-            android:backgroundTint="#EF6C00"
-            android:layout_marginTop="14dp" />
-
-        <Button
-            android:id="@+id/btnLogout"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="SIGN OUT" android:backgroundTint="#5A6B7C"
-            android:layout_marginTop="24dp" />
-
-        <TextView
-            android:id="@+id/tvLog"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="" android:textSize="12sp" android:textColor="#37474F"
-            android:paddingTop="12dp" android:typeface="monospace" />
     </LinearLayout>
 </ScrollView>

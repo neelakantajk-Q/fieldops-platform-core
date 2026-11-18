@@ -1,50 +1,154 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:fillViewport="true" android:background="#F2F5F9">
+    android:fillViewport="true" android:background="@color/fo_bg">
 
     <LinearLayout
         android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="vertical" android:padding="24dp" android:gravity="center">
+        android:orientation="vertical">
+
+        <!-- Brand bar -->
+        <LinearLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:paddingStart="20dp" android:paddingEnd="20dp"
+            android:paddingTop="18dp" android:paddingBottom="6dp">
+
+            <ImageView
+                android:layout_width="42dp" android:layout_height="42dp"
+                android:src="@drawable/quantum_logo"
+                android:contentDescription="Quantum FieldOps" />
+
+            <LinearLayout
+                android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="wrap_content" android:orientation="vertical"
+                android:layout_marginStart="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Quantum FieldOps" android:textSize="17sp"
+                    android:textStyle="bold" android:textColor="@color/fo_text" />
+
+                <TextView
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Field Operations Platform" android:textSize="11sp"
+                    android:textColor="@color/fo_muted" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="v2.0" android:textSize="10sp" android:textStyle="bold"
+                android:textColor="@color/fo_green_dark"
+                android:background="@drawable/chip_lime_soft"
+                android:paddingStart="8dp" android:paddingEnd="8dp"
+                android:paddingTop="4dp" android:paddingBottom="4dp" />
+        </LinearLayout>
+
+        <!-- Sign-in card -->
+        <FrameLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginStart="18dp" android:layout_marginEnd="18dp"
+            android:layout_marginTop="18dp"
+            android:background="@drawable/card_plain_bg"
+            android:elevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="22dp" android:paddingEnd="22dp"
+                android:paddingTop="24dp" android:paddingBottom="22dp">
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Welcome back" android:textSize="22sp"
+                    android:textStyle="bold" android:textColor="@color/fo_text" />
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Sign in to continue to your field workspace."
+                    android:textSize="12sp" android:textColor="@color/fo_muted"
+                    android:paddingTop="4dp" android:paddingBottom="20dp" />
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Username" android:textSize="11sp" android:textStyle="bold"
+                    android:textColor="@color/fo_text" android:paddingBottom="6dp" />
+
+                <EditText
+                    android:id="@+id/etUsername"
+                    android:layout_width="match_parent" android:layout_height="46dp"
+                    android:background="@drawable/input_bg"
+                    android:hint="Enter your username" android:textSize="14sp"
+                    android:textColor="@color/fo_text" android:textColorHint="#94A3B8"
+                    android:inputType="text" android:paddingStart="14dp" android:paddingEnd="14dp"
+                    android:maxLines="1" />
+
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Password" android:textSize="11sp" android:textStyle="bold"
+                    android:textColor="@color/fo_text" android:paddingTop="12dp"
+                    android:paddingBottom="6dp" />
+
+                <EditText
+                    android:id="@+id/etPassword"
+                    android:layout_width="match_parent" android:layout_height="46dp"
+                    android:background="@drawable/input_bg"
+                    android:hint="Enter your password" android:textSize="14sp"
+                    android:textColor="@color/fo_text" android:textColorHint="#94A3B8"
+                    android:inputType="textPassword"
+                    android:paddingStart="14dp" android:paddingEnd="14dp"
+                    android:maxLines="1" />
+
+                <EditText
+                    android:id="@+id/etBaseUrl"
+                    android:layout_width="match_parent" android:layout_height="46dp"
+                    android:background="@drawable/input_bg"
+                    android:hint="Server URL" android:textSize="13sp"
+                    android:textColor="@color/fo_text" android:textColorHint="#94A3B8"
+                    android:inputType="textUri" android:visibility="gone"
+                    android:layout_marginTop="10dp"
+                    android:paddingStart="14dp" android:paddingEnd="14dp"
+                    android:maxLines="1" />
+
+                <TextView
+                    android:id="@+id/tvLoginStatus"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="" android:textSize="12sp" android:textColor="#B91C1C"
+                    android:background="@drawable/banner_bg"
+                    android:gravity="center" android:padding="10dp"
+                    android:layout_marginTop="10dp" android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/btnLogin"
+                    style="@style/FoButton"
+                    android:layout_width="match_parent" android:layout_height="48dp"
+                    android:layout_marginTop="16dp"
+                    android:text="SIGN IN" android:textAllCaps="true"
+                    android:letterSpacing="0.08" android:textSize="14sp"
+                    android:textColor="@color/fo_white"
+                    android:backgroundTint="@color/fo_green" />
+
+                <TextView
+                    android:id="@+id/tvForgot"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Need help? Contact your supervisor"
+                    android:textSize="12sp" android:textColor="@color/fo_green_dark"
+                    android:gravity="center" android:paddingTop="14dp"
+                    android:background="?attr/selectableItemBackground" />
+            </LinearLayout>
+        </FrameLayout>
 
         <TextView
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="FieldOps" android:textSize="32sp" android:textStyle="bold"
-            android:textColor="#1B3A5C" android:paddingBottom="4dp" />
+            android:id="@+id/tvAdvanced"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Advanced server settings" android:textSize="11sp"
+            android:textColor="@color/fo_muted" android:gravity="center"
+            android:paddingTop="16dp" android:paddingBottom="8dp" />
 
         <TextView
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Field service and vehicle CAPA platform"
-            android:textSize="13sp" android:textColor="#5A6B7C"
-            android:paddingBottom="32dp" />
-
-        <EditText
-            android:id="@+id/etBaseUrl"
             android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:hint="Server URL" android:inputType="textUri"
-            android:layout_marginBottom="12dp" />
-
-        <EditText
-            android:id="@+id/etUsername"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:hint="Username" android:inputType="text"
-            android:layout_marginBottom="12dp" />
-
-        <EditText
-            android:id="@+id/etPassword"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:hint="Password" android:inputType="textPassword"
-            android:layout_marginBottom="20dp" />
-
-        <Button
-            android:id="@+id/btnLogin"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="SIGN IN" android:backgroundTint="#1B3A5C" />
-
-        <TextView
-            android:id="@+id/tvLoginStatus"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="" android:textColor="#B3261E" android:paddingTop="16dp"
-            android:gravity="center" />
+            android:text="Quantum"
+            android:textSize="10sp" android:textColor="#94A3B8"
+            android:gravity="center" android:paddingBottom="18dp" />
     </LinearLayout>
 </ScrollView>

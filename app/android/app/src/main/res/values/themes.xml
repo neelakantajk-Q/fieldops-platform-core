@@ -1,5 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.FieldOps" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="android:statusBarColor">#1B3A5C</item>
+
+    <style name="Theme.FieldOps" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/fo_green</item>
+        <item name="colorOnPrimary">@color/fo_white</item>
+        <item name="colorPrimaryContainer">@color/fo_success_soft</item>
+        <item name="colorOnPrimaryContainer">@color/fo_green_dark</item>
+        <item name="colorSecondary">@color/fo_blue</item>
+        <item name="colorOnSecondary">@color/fo_white</item>
+        <item name="colorTertiary">@color/fo_lime</item>
+        <item name="colorOnTertiary">@color/fo_on_green</item>
+        <item name="colorError">@color/fo_danger</item>
+        <item name="android:colorBackground">@color/fo_bg</item>
+        <item name="colorSurface">@color/fo_card</item>
+        <item name="colorOnSurface">@color/fo_text</item>
+        <item name="colorSurfaceVariant">@color/fo_bg</item>
+        <item name="colorOnSurfaceVariant">@color/fo_muted</item>
+        <item name="colorOutline">@color/fo_border</item>
+        <item name="android:statusBarColor">@color/fo_ink</item>
+        <item name="android:navigationBarColor">@color/fo_card</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">@color/fo_bg</item>
     </style>
+
+    <style name="Theme.FieldOps.Splash" parent="Theme.FieldOps">
+        <item name="android:windowBackground">@drawable/splash_bg</item>
+        <item name="android:statusBarColor">@color/fo_bg</item>
+        <item name="android:navigationBarColor">@color/fo_bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <style name="FoCard">
+        <item name="android:background">@drawable/card_bg</item>
+        <item name="android:padding">14dp</item>
+    </style>
+
+    <style name="FoSectionLabel">
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:textColor">@color/fo_muted</item>
+        <item name="android:paddingBottom">6dp</item>
+    </style>
+
+    <style name="FoButton" parent="Widget.Material3.Button">
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textStyle">bold</item>
+        <item name="cornerRadius">12dp</item>
+    </style>
+
 </resources>

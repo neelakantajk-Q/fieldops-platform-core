@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Palette synced from HRMS portal index.html :root (green / blue) -->
+    <color name="fo_ink">#0F172A</color>
+    <color name="fo_ink_deep">#051330</color>
+    <color name="fo_green">#16A34A</color>
+    <color name="fo_green_dark">#166534</color>
+    <color name="fo_wa_green">#25D366</color>
+    <color name="fo_wa_green_dark">#0E9F56</color>
+    <color name="fo_lime">#A6CE39</color>
+    <color name="fo_blue">#1D4ED8</color>
+    <color name="fo_bg">#F5F7FB</color>
+    <color name="fo_card">#FFFFFF</color>
+    <color name="fo_border">#E2E8F0</color>
+    <color name="fo_text">#1E293B</color>
+    <color name="fo_muted">#64748B</color>
+    <color name="fo_success">#22C55E</color>
+    <color name="fo_success_soft">#F0FDF4</color>
+    <color name="fo_warning">#F59E0B</color>
+    <color name="fo_danger">#EF4444</color>
+    <color name="fo_danger_soft">#FEF2F2</color>
+    <color name="fo_on_green">#04240F</color>
+    <color name="fo_white">#FFFFFF</color>
+</resources>

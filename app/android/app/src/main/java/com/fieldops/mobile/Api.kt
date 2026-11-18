@@ -78,6 +78,7 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
             Prefs.username = u.optString("username")
             Prefs.role = u.optString("role")
             Prefs.hubId = u.optString("hubId")
+            Prefs.moduleRights = u.optString("moduleRights")
             loadHub()
             loadBufferSetting()
         }
@@ -312,14 +313,62 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
     }
 
     fun latestOpenJob(): JSONObject? {
+        val me = esc(Prefs.userId)
         val res = call(Request.Builder()
-            .url(url("/api/collections/job_cards/records?filter=(technician_id=\"" + esc(Prefs.userId) + "\" && status=\"OPEN\" || technician_id=\"" + esc(Prefs.userId) + "\" && status=\"IN_PROGRESS\")&sort=-job_started_at&perPage=1"))
+            .url(url("/api/collections/job_cards/records?filter=(technician_id=\"$me\" && (status=\"OPEN\" || status=\"IN_PROGRESS\" || status=\"ON_HOLD\"))&sort=-updated&perPage=1"))
+            .build())
+        val items = res.optJSONArray("items") ?: return null
+        val job = if (items.length() > 0) items.getJSONObject(0) else return null
+        Prefs.jobOnHold = job.optString("status") == "ON_HOLD"
+        return job
+    }
+
+    /** Resolve a job card by record id or by human job_code. */
+    fun findJob(jobIdOrCode: String): JSONObject? {
+        val key = jobIdOrCode.trim()
+        if (key.isEmpty()) return null
+        if (key.length == 15 && key.all { it.isLetterOrDigit() }) {
+            try {
+                return call(Request.Builder()
+                    .url(url("/api/collections/job_cards/records/" + key)).build())
+            } catch (e: ApiError) { /* fall through to job_code lookup */ }
+        }
+        val res = call(Request.Builder()
+            .url(url("/api/collections/job_cards/records?filter=(job_code=\"" + esc(key) + "\")&perPage=1"))
             .build())
         val items = res.optJSONArray("items") ?: return null
         return if (items.length() > 0) items.getJSONObject(0) else null
     }
 
+    /** Raise an ON_HOLD request for the active job (mirrors the portal). */
+    fun jobHoldRequest(jobIdOrCode: String, categoryLabel: String, reason: String): JSONObject {
+        val job = findJob(jobIdOrCode) ?: throw ApiError(404, "Job not found. Refresh and retry.")
+        val jobRecId = job.getString("id")
+        val code = when {
+            categoryLabel.contains("spare", true) || categoryLabel.contains("part", true) -> "WAITING_FOR_SPARES"
+            categoryLabel.contains("approv", true) -> "WAITING_APPROVAL"
+            else -> "FACILITY_LIMITATION"
+        }
+        val hold = JSONObject()
+            .put("job_card_id", jobRecId)
+            .put("reason", code)
+            .put("notes", (reason.ifEmpty { categoryLabel }) + " | FieldBubble")
+            .put("held_at", isoNow())
+            .put("client_request_id", requestId())
+        call(Request.Builder()
+            .url(url("/api/collections/job_card_holds/records"))
+            .post(json(hold.toString())).build())
+        val patch = JSONObject()
+            .put("status", "ON_HOLD")
+            .put("delay_category", categoryLabel)
+            .put("delay_reason", reason.ifEmpty { categoryLabel })
+        return call(Request.Builder()
+            .url(url("/api/collections/job_cards/records/" + jobRecId))
+            .patch(json(patch.toString())).build())
+    }
+
     fun endJob(jobId: String, notes: String, photoFile: File?): JSONObject {
+        val resolved = findJob(jobId)?.optString("id").orEmpty().ifEmpty { jobId }
         val mp = MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("status", "CLOSED")
             .addFormDataPart("job_completed_at", isoNow())
@@ -327,7 +376,7 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
         if (notes.isNotEmpty()) mp.addFormDataPart("service_notes", notes)
         photoFile?.let { mp.addFormDataPart("end_proof_photo", it.name, it.asRequestBody("image/jpeg".toMediaType())) }
         return call(Request.Builder()
-            .url(url("/api/collections/job_cards/records/" + jobId))
+            .url(url("/api/collections/job_cards/records/" + resolved))
             .patch(mp.build()).build())
     }
 

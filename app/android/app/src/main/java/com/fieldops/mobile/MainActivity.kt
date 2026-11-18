@@ -35,7 +35,8 @@ class MainActivity : AppCompatActivity() {
     private var lastAccuracy: Double = 9999.0
     private var lastMock: Boolean = false
     private var haveFix: Boolean = false
-    private var zoneBase: String = "Zone: —"
+    private var zoneBase: String = "Geofence: -"
+    private var pendingBubble: Boolean = false
 
     private val pollPending = object : Runnable {
         override fun run() {
@@ -53,18 +54,25 @@ class MainActivity : AppCompatActivity() {
         tvLog = findViewById(R.id.tvLog)
         tvHub = findViewById(R.id.tvHub)
         findViewById<TextView>(R.id.tvUser).text =
-            "${Prefs.username}  ·  ${Prefs.role}\nDevice: ${Prefs.deviceUUID.take(8)}"
+            "${Prefs.username} | ${Prefs.role}\nDevice: ${Prefs.deviceUUID.take(8)}"
 
         findViewById<Button>(R.id.btnCheckIn).setOnClickListener { punch("CheckIn") }
         findViewById<Button>(R.id.btnCheckOut).setOnClickListener { punch("CheckOut") }
         findViewById<Button>(R.id.btnStartJob).setOnClickListener { startJobDialog() }
         findViewById<Button>(R.id.btnEndJob).setOnClickListener { endJob() }
+        findViewById<Button>(R.id.btnHoldJob).setOnClickListener { holdJobDialog() }
         findViewById<Button>(R.id.btnBubble).setOnClickListener { showBubble() }
         findViewById<Button>(R.id.btnGeo).setOnClickListener { toggleGeofence() }
         findViewById<Button>(R.id.btnCapture).setOnClickListener {
             startActivity(Intent(this, CameraOcrActivity::class.java))
         }
+        findViewById<Button>(R.id.btnPortal).setOnClickListener {
+            openPortal(null)
+        }
+        findViewById<Button>(R.id.btnTeam).setOnClickListener { openPortal("team") }
+        findViewById<Button>(R.id.btnPerformance).setOnClickListener { openPortal("performance") }
         findViewById<Button>(R.id.btnLogout).setOnClickListener {
+            stopService(Intent(this, OverlayBubbleService::class.java))
             thread { Api().logout() }
             startActivity(Intent(this, LoginActivity::class.java)); finish()
         }
@@ -75,6 +83,10 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshLocation()
+        if (pendingBubble && Settings.canDrawOverlays(this)) {
+            pendingBubble = false
+            startBubbleService()
+        }
         if (isSupervisor()) handler.post(pollPending)
     }
 
@@ -120,10 +132,10 @@ class MainActivity : AppCompatActivity() {
                 val dist = GeoMath.haversineMeters(lastLat, lastLng, Prefs.hubLat, Prefs.hubLng)
                 val zone = GeoMath.zone(dist, Prefs.hubRadius, Prefs.bufferMeters)
                 Prefs.lastZone = zone
-                zoneBase = "Zone: $zone  ·  ${Math.round(dist)}m from hub" +
-                        "  ·  breach at ${Prefs.hubRadius + Prefs.bufferMeters}m"
+                zoneBase = "Geofence: $zone | ${Math.round(dist)}m from hub" +
+                        " | breach at ${Math.round(Prefs.hubRadius + Prefs.bufferMeters)}m"
                 tvHub.text = "Hub: ${Prefs.hubName} (${Prefs.hubRadius}m radius)" +
-                        if (lastMock) "  ·  MOCK LOCATION" else ""
+                        if (lastMock) " | MOCK LOCATION" else ""
                 refreshTransitStatus()
             }
     }
@@ -138,6 +150,10 @@ class MainActivity : AppCompatActivity() {
                     action, lastLat, lastLng, lastAccuracy, lastMock, "")
                 val status = resp.optString("status", "")
                 runOnUiThread {
+                    if (action == "CheckIn") {
+                        Prefs.checkInDate = Api.istToday()
+                        Prefs.hubDistance = Math.round(resp.optDouble("distance_from_hub_meters", 0.0)).toDouble()
+                    }
                     toast("$action recorded: $status" +
                             " (${Math.round(resp.optDouble("distance_from_hub_meters", 0.0))}m from hub)")
                     log("$action -> $status")
@@ -156,7 +172,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Out-of-radius punch rejected → offer a day-transit request to sup/admin. */
+    /** Out-of-radius punch rejected - offer a day-transit request to sup/admin. */
     private fun offerTransitRequest(action: String, reason: String) {
         AlertDialog.Builder(this)
             .setTitle("Outside hub radius")
@@ -178,10 +194,10 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     when {
                         resp.optBoolean("alreadyApproved") ->
-                            toast("Transit already APPROVED for today — retry your $action.")
+                            toast("Transit already approved for today - retry your $action.")
                         resp.optBoolean("pending") == true ->
                             toast("Transit request already PENDING for today.")
-                        else -> toast("Transit request sent — awaiting supervisor approval.")
+                        else -> toast("Roaming request sent - awaiting supervisor approval.")
                     }
                     refreshTransitStatus()
                 }
@@ -206,7 +222,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     tvZone.text = "$zoneBase\n$line"
                 }
-            } catch (e: Exception) { /* offline — ignore */ }
+            } catch (e: Exception) { /* offline - ignore */ }
         }
     }
 
@@ -224,6 +240,9 @@ class MainActivity : AppCompatActivity() {
                 thread {
                     try {
                         val job = Api().startJob(plate, "MANUAL", 0.0, null)
+                        Prefs.jobStartedAt = System.currentTimeMillis()
+                        Prefs.jobPlate = plate
+                        Prefs.jobId = job.optString("id")
                         runOnUiThread { toast("Job ${job.optString("job_code")} started.") }
                     } catch (e: Exception) {
                         runOnUiThread { toast("Start failed: ${e.message}") }
@@ -237,19 +256,72 @@ class MainActivity : AppCompatActivity() {
     private fun endJob() {
         thread {
             try {
-                val job = Api().latestOpenJob()
+                val job = if (Prefs.jobId.isNotEmpty()) Api().findJob(Prefs.jobId)
+                          else Api().latestOpenJob()
                 if (job == null) {
                     runOnUiThread { toast("No open job found.") }
                     return@thread
                 }
-                Api().endJob(job.getString("id"), "Closed from app", null)
+                val jobId = job.optString("id")
+                val code = job.optString("job_code", jobId)
                 runOnUiThread {
-                    toast("Job ${job.optString("job_code")} closed. TAT computed server-side.")
+                    AlertDialog.Builder(this)
+                        .setTitle("Stop job?")
+                        .setMessage("Stop $code and release the vehicle?")
+                        .setPositiveButton("STOP JOB") { _, _ -> doStopJob(jobId, code) }
+                        .setNegativeButton("Cancel", null)
+                        .show()
                 }
             } catch (e: Exception) {
                 runOnUiThread { toast("End failed: ${e.message}") }
             }
         }
+    }
+
+    private fun doStopJob(jobId: String, code: String) {
+        thread {
+            try {
+                Api().endJob(jobId, "Stopped from app", null)
+                Prefs.jobStartedAt = 0L; Prefs.jobId = ""; Prefs.jobPlate = ""; Prefs.jobOnHold = false
+                runOnUiThread { toast("Job $code stopped. TAT computed server-side.") }
+            } catch (e: Exception) {
+                runOnUiThread { toast("Stop failed: ${e.message}") }
+            }
+        }
+    }
+
+    private fun holdJobDialog() {
+        val labels = arrayOf("Waiting for spares", "Waiting for approval", "Facility limitation")
+        AlertDialog.Builder(this)
+            .setTitle("Hold job")
+            .setItems(labels) { _, which -> submitHold(labels[which]) }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun submitHold(category: String) {
+        thread {
+            try {
+                val job = if (Prefs.jobId.isNotEmpty()) Api().findJob(Prefs.jobId)
+                          else Api().latestOpenJob()
+                if (job == null) {
+                    runOnUiThread { toast("No active job to hold.") }
+                    return@thread
+                }
+                val jobId = job.optString("id")
+                Api().jobHoldRequest(jobId, category, "Hold requested from app")
+                Prefs.jobOnHold = true
+                runOnUiThread { toast("Hold sent: $category. Supervisor notified.") }
+            } catch (e: Exception) {
+                runOnUiThread { toast("Hold failed: ${e.message}") }
+            }
+        }
+    }
+
+    private fun openPortal(view: String?) {
+        val intent = Intent(this, PortalActivity::class.java)
+        if (!view.isNullOrEmpty()) intent.putExtra("view", view)
+        startActivity(intent)
     }
 
     /* ------------------------------------------------------ sup: approvals */
@@ -270,7 +342,7 @@ class MainActivity : AppCompatActivity() {
                     val dist = Math.round(r.optDouble("distance_from_hub_meters", 0.0))
                     Notify.alert(
                         this, notifId,
-                        "Transit request — $who",
+                        "Transit request - $who",
                         "$type requested, ${dist}m beyond hub radius. Approve for the whole day?",
                         listOf(
                             "APPROVE" to RoamingActionReceiver.pi(this, id, "APPROVED", notifId),
@@ -278,7 +350,7 @@ class MainActivity : AppCompatActivity() {
                         )
                     )
                 }
-            } catch (e: Exception) { /* offline — retry next cycle */ }
+            } catch (e: Exception) { /* offline - retry next cycle */ }
         }
     }
 
@@ -286,15 +358,25 @@ class MainActivity : AppCompatActivity() {
 
     private fun showBubble() {
         if (!Settings.canDrawOverlays(this)) {
+            pendingBubble = true
             val intent = Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:$packageName")
             )
             startActivity(intent)
-            toast("Grant 'Display over other apps' for the bubble.")
+            toast("Grant Display over other apps - the bubble starts automatically.")
             return
         }
-        ContextCompat.startForegroundService(this, Intent(this, OverlayBubbleService::class.java))
+        startBubbleService()
+    }
+
+    private fun startBubbleService() {
+        try {
+            ContextCompat.startForegroundService(this, Intent(this, OverlayBubbleService::class.java))
+            toast("Field bubbles active - check-in, job timer and safety guard.")
+        } catch (e: Exception) {
+            toast("Bubble failed to start: ${e.message}")
+        }
     }
 
     private fun toggleGeofence() {

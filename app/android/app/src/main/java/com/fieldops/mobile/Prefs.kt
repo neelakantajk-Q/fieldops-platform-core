@@ -70,6 +70,65 @@ object Prefs {
         get() = sp.getString("lastZone", "—") ?: "—"
         set(v) = put("lastZone", v)
 
+    /* ------------------------------------------------ field-work flow state */
+
+    /** IST date (YYYY-MM-DD) of the last submitted attendance photo proof. */
+    var checkInDate: String
+        get() = sp.getString("checkInDate", "") ?: ""
+        set(v) = put("checkInDate", v)
+
+    val checkedInToday: Boolean get() = checkInDate == Api.istToday()
+
+    /** Epoch millis when the job-start photo proof was submitted (timer origin). */
+    var jobStartedAt: Long
+        get() = sp.getLong("jobStartedAt", 0L)
+        set(v) = sp.edit().putLong("jobStartedAt", v).apply()
+
+    var jobPlate: String
+        get() = sp.getString("jobPlate", "") ?: ""
+        set(v) = put("jobPlate", v)
+
+    var jobId: String
+        get() = sp.getString("jobId", "") ?: ""
+        set(v) = put("jobId", v)
+
+    /** Warehouse of comma-separated module rights returned by the backend at login. */
+    var moduleRights: String
+        get() = sp.getString("moduleRights", "") ?: ""
+        set(v) = put("moduleRights", v)
+
+    /** True while the active job card is ON_HOLD (supervisor requested). */
+    var jobOnHold: Boolean
+        get() = sp.getBoolean("jobOnHold", false)
+        set(v) = sp.edit().putBoolean("jobOnHold", v).apply()
+
+    /** Last known day-pass state, cached by the overlay poller. */
+    var transitApproved: Boolean
+        get() = sp.getBoolean("transitApproved", false)
+        set(v) = sp.edit().putBoolean("transitApproved", v).apply()
+
+    var transitPending: Boolean
+        get() = sp.getBoolean("transitPending", false)
+        set(v) = sp.edit().putBoolean("transitPending", v).apply()
+
+    var hubDistance: Double
+        get() = java.lang.Double.longBitsToDouble(sp.getLong("hubDistance", 0L))
+        set(v) = sp.edit().putLong("hubDistance", java.lang.Double.doubleToRawLongBits(v)).apply()
+
+    var bubbleOn: Boolean
+        get() = sp.getBoolean("bubbleOn", false)
+        set(v) = sp.edit().putBoolean("bubbleOn", v).apply()
+
+    fun resetDayFlow() {
+        checkInDate = ""
+        jobStartedAt = 0L
+        jobPlate = ""
+        jobId = ""
+        jobOnHold = false
+        transitApproved = false
+        transitPending = false
+    }
+
     val deviceUUID: String by lazy {
         val saved = sp.getString("deviceUUID", null)
         if (saved != null) saved else {
