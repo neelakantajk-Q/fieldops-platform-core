@@ -54,9 +54,30 @@ function PersonCard({ person, depth }) {
   );
 }
 
+function BarList({ data, tone = '#2563eb', empty = 'No data.' }) {
+  const rows = Object.entries(data || {}).sort((a, b) => b[1] - a[1]);
+  if (!rows.length) return <Empty>{empty}</Empty>;
+  const max = rows[0][1] || 1;
+  return (
+    <ul className="legend" style={{ width: '100%' }}>
+      {rows.map(([name, value]) => (
+        <li key={name} style={{ alignItems: 'center' }}>
+          <span className="legend-name" style={{ flex: 1, minWidth: 90 }}>{name}</span>
+          <span style={{ flex: 2, height: 8, borderRadius: 99, background: '#eef2f7', overflow: 'hidden' }}>
+            <span style={{ display: 'block', height: '100%', width: `${Math.max(4, Math.round(100 * value / max))}%`, background: tone }} />
+          </span>
+          <b style={{ minWidth: 28, textAlign: 'right' }}>{value}</b>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function Team({ session }) {
   const tree = useAsync(() => call('getOrgTree', {}), []);
+  const perf = useAsync(() => call('getAnalytics', {}), []);
   const nodes = (tree.data && tree.data.tree) || [];
+  const analytics = (perf.data && perf.data.analytics) || {};
 
   const chain = useMemo(() => {
     const flat = [];
@@ -83,14 +104,27 @@ export default function Team({ session }) {
             : 'You are at the top of your visible scope.'}
         </div>
       ) : null}
-      <Card pad={false} title="Organization">
-        <div style={{ padding: 16 }}>
-          {tree.loading ? <Spinner label="Loading org…" /> : null}
-          {tree.error ? <div className="hint-banner">{tree.error.message}</div> : null}
-          {tree.data && !nodes.length ? <Empty>No people in your scope.</Empty> : null}
-          {nodes.map((n) => <PersonCard key={n.userId || n.username} person={n} depth={0} />)}
-        </div>
-      </Card>
+      <div className="grid cols-2" style={{ marginTop: 16 }}>
+        <Card title="Hub performance" subtitle="Open + completed job cards per hub">
+          {perf.loading ? <Spinner label="Loading hub workload…" /> : null}
+          {!perf.loading ? <BarList data={analytics.hubWorkload} tone="#0284c7" empty="No hub workload yet." /> : null}
+        </Card>
+        <Card title="Peer performance" subtitle="Completed job cards per engineer">
+          {perf.loading ? <Spinner label="Loading peer productivity…" /> : null}
+          {!perf.loading ? <BarList data={analytics.engineerProductivity} tone="#16a34a" empty="No peer productivity yet." /> : null}
+        </Card>
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <Card pad={false} title="Organization">
+          <div style={{ padding: 16 }}>
+            {tree.loading ? <Spinner label="Loading org…" /> : null}
+            {tree.error ? <div className="hint-banner">{tree.error.message}</div> : null}
+            {tree.data && !nodes.length ? <Empty>No people in your scope.</Empty> : null}
+            {nodes.map((n) => <PersonCard key={n.userId || n.username} person={n} depth={0} />)}
+          </div>
+        </Card>
+      </div>
     </>
   );
 }

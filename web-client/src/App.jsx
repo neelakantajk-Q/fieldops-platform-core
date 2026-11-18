@@ -10,6 +10,8 @@ import Jobs from './pages/Jobs.jsx';
 import Pending from './pages/Pending.jsx';
 import Team from './pages/Team.jsx';
 import Notifications from './pages/Notifications.jsx';
+import LiveMap from './pages/Map.jsx';
+import Performance from './pages/Performance.jsx';
 import Uptime from './pages/Uptime.jsx';
 import Vehicles from './pages/Vehicles.jsx';
 import Reports from './pages/Reports.jsx';
@@ -30,6 +32,8 @@ const NAV = [
   ]},
   { section: 'Field', items: [
     { id: 'team', label: 'Team', min: 1, view: Team },
+    { id: 'performance', label: 'Performance', min: 2, view: Performance },
+    { id: 'map', label: 'Live Map', min: 1, view: LiveMap },
     { id: 'notifications', label: 'Notifications', min: 1, view: Notifications }
   ]},
   { section: 'Reporting', items: [
@@ -103,13 +107,31 @@ function App() {
   );
 }
 
+function viewFromHash() {
+  if (typeof window === 'undefined') return '';
+  return String(window.location.hash || '').replace(/^#\/?/, '').trim();
+}
+
 function Shell({ session, onAuthChange }) {
   const toast = useToast();
-  const [view, setView] = useState('overview');
+  const [view, setView] = useState(viewFromHash() || 'overview');
   const [navOpen, setNavOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [busy, setBusy] = useState(false);
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
+
+  useEffect(() => {
+    const onHash = () => {
+      const next = viewFromHash();
+      if (next) setView(next);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  useEffect(() => {
+    try { window.history.replaceState(null, '', '#' + view); } catch (_) { /* file:// */ }
+  }, [view]);
 
   useEffect(() => {
     const goOnline = () => setOnline(true);

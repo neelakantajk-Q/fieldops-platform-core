@@ -681,10 +681,59 @@ export async function pbCall(action, payload = {}) {
       if (!data || !data.success) fail(data || {}, 'Password update failed.');
       return { ok: true };
     }
+    case 'getTelemetry': {
+      const f = [];
+      if (payload.userId) {
+        const u = await findUserByName(payload.userId);
+        if (u) f.push(`user_id = "${u.id}"`);
+      }
+      if (payload.date) {
+        f.push(`timestamp >= "${esc(payload.date)} 00:00:00.000Z" && timestamp <= "${esc(payload.date)} 23:59:59.999Z"`);
+      }
+      if (payload.since) f.push(`timestamp >= "${esc(payload.since)}"`);
+      const res = await list('telemetry', {
+        filter: f.join(' && '), sort: '-timestamp',
+        perPage: Math.min(Number(payload.limit) || 500, 500)
+      });
+      const d = await directory();
+      const nameOf = (id) => ((d.users || []).find((u) => u.id === id) || {}).username || id || '—';
+      const points = (res.items || []).map((r) => ({
+        id: r.id, userId: r.user_id, username: nameOf(r.user_id),
+        lat: Number(r.latitude), lng: Number(r.longitude),
+        at: r.timestamp || r.created, zone: r.zone || '',
+        accuracy: Number(r.accuracy_meters) || 0,
+        mock: r.is_mock_provider === true,
+        battery: Number(r.battery_pct) || 0,
+        source: r.source || ''
+      })).filter((p) => isFinite(p.lat) && isFinite(p.lng) && !(p.lat === 0 && p.lng === 0));
+      return { ok: true, points, telemetry: points };
+    }
+    case 'getLiveLocations': {
+      const res = await list('telemetry', { sort: '-timestamp', perPage: 500 });
+      const d = await directory();
+      const seen = {};
+      const locations = [];
+      for (const r of (res.items || [])) {
+        if (!r.user_id || seen[r.user_id]) continue;
+        const lat = Number(r.latitude), lng = Number(r.longitude);
+        if (!isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) continue;
+        const u = (d.users || []).find((x) => x.id === r.user_id) || {};
+        seen[r.user_id] = true;
+        locations.push({
+          userId: r.user_id, username: u.username || r.user_id,
+          role: u.role || '', hub: u.hub_name || u.hub_id || '',
+          lat, lng, at: r.timestamp || r.created, zone: r.zone || '',
+          accuracy: Number(r.accuracy_meters) || 0,
+          mock: r.is_mock_provider === true,
+          battery: Number(r.battery_pct) || 0
+        });
+      }
+      return { ok: true, locations, hubs: d.hubs || [] };
+    }
     case 'getHoldDecision': case 'getUnapprovedJobs': case 'getTransitRequests': case 'getSplashMetadata':
       return { ok: true, unapproved: [], transitRequests: [], notifications: [] };
     case 'saveDynamicField': case 'runFinancialClosing': case 'exportMisPackage':
-    case 'broadcastSync': case 'broadcastNotification': case 'getTelemetry': case 'getLiveLocations':
+    case 'broadcastSync': case 'broadcastNotification':
     case 'getCaptureFeed': case 'getJobAudit': case 'getJobProofBundle': case 'getAttendanceProofBundle':
       return { ok: true };
     default:
