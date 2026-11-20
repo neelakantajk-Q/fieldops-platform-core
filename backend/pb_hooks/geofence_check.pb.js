@@ -9,7 +9,9 @@
  * Rejects (CheckIn/CheckOut punches only):
  *   - mock location providers            -> Rejected_Mock
  *   - GPS accuracy worse than 25 metres   -> Rejected_Accuracy
- *   - punches outside hub radius          -> Rejected_Geofence (unless allow_roaming)
+ *   - punches outside the effective zone  -> Rejected_Geofence (unless allow_roaming)
+ *     Effective zone = per-user override when users.geofence_mode = CUSTOM,
+ *     no radius limit when ROAMING, otherwise the service hub's radius.
  *
  * Geo* telemetry events (GeoBreach/GeoTransit/GeoMock/GeoReturn) raised by the
  * floating bubble are recorded, never rejected — a breach is by definition
@@ -38,39 +40,76 @@ onRecordBeforeCreateRequest((e) => {
         const istDate = new Date(tsMs + 19800000).toISOString().slice(0, 10);
         rec.set("ist_date", istDate);
 
-        let hub;
+        let hub = null;
         try {
             hub = $app.dao().findRecordById("service_hubs", hubId);
         } catch (err) {
+            hub = null;
+        }
+
+        // Per-user geofence override (set by a manager on the Live Map).
+        // INHERIT_HUB = hub center/radius; CUSTOM = user center/radius;
+        // ROAMING = no radius limit (punches auto-accepted).
+        let punchUser = null;
+        try {
+            punchUser = $app.dao().findRecordById("users", String(rec.get("user_id") || ""));
+        } catch (err) {
+            punchUser = null;
+        }
+        const mode = punchUser ? String(punchUser.get("geofence_mode") || "INHERIT_HUB") : "INHERIT_HUB";
+        const userLat = punchUser ? Number(punchUser.get("geofence_lat") || 0) : 0;
+        const userLon = punchUser ? Number(punchUser.get("geofence_lng") || 0) : 0;
+        const userRadius = punchUser ? Number(punchUser.get("geofence_radius_m") || 0) : 0;
+        const customValid = isFinite(userLat) && isFinite(userLon) &&
+            !(userLat === 0 && userLon === 0) && userRadius >= 25;
+
+        if (!hub && !(mode === "CUSTOM" && customValid)) {
             throw new BadRequestError("Unknown service hub: " + hubId);
         }
 
-        const hubLat = Number(hub.get("latitude"));
-        const hubLon = Number(hub.get("longitude"));
-        const radius = Number(hub.get("radius_meters")) || 250;
-        const allowRoaming = hub.get("allow_roaming") === true ||
-            String(hub.get("allow_roaming")).toLowerCase() === "true";
+        const hubLat = hub ? Number(hub.get("latitude")) : userLat;
+        const hubLon = hub ? Number(hub.get("longitude")) : userLon;
+        const hubRadius = hub ? (Number(hub.get("radius_meters")) || 250) : userRadius;
+        const hubRoaming = hub ? (hub.get("allow_roaming") === true ||
+            String(hub.get("allow_roaming")).toLowerCase() === "true") : false;
+
+        let geofenceLat = hubLat;
+        let geofenceLon = hubLon;
+        let radius = hubRadius;
+        let allowRoaming = hubRoaming;
+        let geofenceSource = "HUB";
+        if (mode === "CUSTOM" && customValid) {
+            geofenceLat = userLat;
+            geofenceLon = userLon;
+            radius = userRadius;
+            geofenceSource = "CUSTOM";
+        } else if (mode === "ROAMING") {
+            geofenceSource = "ROAMING";
+            allowRoaming = true;
+        }
 
         // Haversine, inlined (file-level functions are not visible here).
         const R = 6371000;
         const toRad = (d) => d * Math.PI / 180;
-        const dLat = toRad(hubLat - lat);
-        const dLon = toRad(hubLon - lon);
+        const dLat = toRad(geofenceLat - lat);
+        const dLon = toRad(geofenceLon - lon);
         const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(toRad(lat)) * Math.cos(toRad(hubLat)) *
+            Math.cos(toRad(lat)) * Math.cos(toRad(geofenceLat)) *
             Math.sin(dLon / 2) * Math.sin(dLon / 2);
         const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
         rec.set("distance_from_hub_meters", Math.round(distance * 10) / 10);
+        rec.set("within_geofence", distance <= radius);
 
         // Telemetry events from the bubble: record + classify, never reject.
-        // BREACH = more than radius + 100m buffer beyond the hub.
+        // BREACH = more than radius + 100m buffer beyond the geofence center.
         if (action.indexOf("Geo") === 0) {
             rec.set("within_geofence", action === "GeoReturn" || distance <= radius);
             rec.set("notes", rec.get("notes") || (
                 "zone=" + (distance <= radius ? "INSIDE" :
                     (distance <= radius + 100 ? "BUFFER" : "OUTSIDE")) +
-                " dist=" + Math.round(distance) + "m radius=" + radius + "m buffer=100m"
+                " dist=" + Math.round(distance) + "m radius=" + radius + "m buffer=100m" +
+                " source=" + geofenceSource
             ));
             return;
         }
@@ -109,7 +148,8 @@ onRecordBeforeCreateRequest((e) => {
                     rec.set("status", "Rejected_Geofence");
                     throw new BadRequestError(
                         "Geofence violation: " + Math.round(distance) +
-                        "m from hub (allowed " + radius + "m, roaming disabled)."
+                        "m from " + (geofenceSource === "CUSTOM" ? "assigned zone" : "hub") +
+                        " (allowed " + radius + "m, roaming disabled)."
                     );
                 }
             }

@@ -4,97 +4,10 @@ import { clientRequestId } from './lib/utils.js';
 import { BRAND } from './config.js';
 import { ToastProvider, useToast } from './components.jsx';
 import Login from './pages/Login.jsx';
-import Overview from './pages/Overview.jsx';
-import Attendance from './pages/Attendance.jsx';
-import Jobs from './pages/Jobs.jsx';
-import Pending from './pages/Pending.jsx';
-import Team from './pages/Team.jsx';
-import Notifications from './pages/Notifications.jsx';
-import LiveMap from './pages/Map.jsx';
-import Performance from './pages/Performance.jsx';
-import Uptime from './pages/Uptime.jsx';
-import Vehicles from './pages/Vehicles.jsx';
-import Reports from './pages/Reports.jsx';
-import Masters from './pages/Masters.jsx';
-import Workflows from './pages/Workflows.jsx';
-import Admin from './pages/Admin.jsx';
-import Platform from './pages/Platform.jsx';
+import { sectionsFor } from './nav.js';
+import { MobileShell } from './mobile/MobileShell.jsx';
+import { useIsMobile } from './hooks/useIsMobile.js';
 import logo from './assets/quantum-logo.png';
-
-const ROLE_RANK = { Technician: 1, Supervisor: 2, Moderator: 3, Administrator: 4, Platform: 99 };
-
-const NAV = [
-  { section: 'Workspace', items: [
-    { id: 'overview', label: 'Overview', min: 1, view: Overview },
-    { id: 'attendance', label: 'Attendance', min: 1, view: Attendance },
-    { id: 'jobs', label: 'Job Cards', min: 1, view: Jobs },
-    { id: 'pending', label: 'Pending Jobs', min: 1, view: Pending }
-  ]},
-  { section: 'Field', items: [
-    { id: 'team', label: 'Team', min: 1, view: Team },
-    { id: 'performance', label: 'Performance', min: 2, view: Performance },
-    { id: 'map', label: 'Live Map', min: 1, view: LiveMap },
-    { id: 'notifications', label: 'Notifications', min: 1, view: Notifications }
-  ]},
-  { section: 'Reporting', items: [
-    { id: 'uptime', label: 'Vehicle Uptime', min: 2, view: Uptime },
-    { id: 'reports', label: 'Reports & MIS', min: 2, view: Reports }
-  ]},
-  { section: 'Fleet', items: [
-    { id: 'vehicles', label: 'Vehicles & OCR', min: 2, view: Vehicles },
-    { id: 'masters', label: 'Master Data', min: 2, view: Masters }
-  ]},
-  { section: 'Administration', items: [
-    { id: 'workflows', label: 'Workflows', min: 2, view: Workflows },
-    { id: 'admin', label: 'Admin Panel', min: 4, view: Admin },
-    { id: 'platform', label: 'Platform Console', min: 4, view: Platform }
-  ]}
-];
-
-const MODULE_ALIASES = {
-  tasks: ['jobs', 'pending'],
-  jobs: ['jobs', 'pending'],
-  attendance: ['attendance'],
-  team: ['team'],
-  vehicles: ['vehicles', 'uptime'],
-  uptime: ['uptime', 'vehicles'],
-  reports: ['reports'],
-  notifications: ['notifications'],
-  masters: ['masters'],
-  workflows: ['workflows'],
-  admin: ['admin'],
-  platform: ['platform']
-};
-
-const MODULE_NAMES = ['tasks', 'attendance', 'vehicles', 'team', 'reports', 'notifications', 'masters', 'workflows', 'admin', 'platform'];
-
-function normalizeModule(value) {
-  const raw = String(value || '').toLowerCase().replace(/^module[-_]?/, '').replace(/[-_]?view$/, '').trim();
-  const hit = MODULE_NAMES.find((m) => raw === m || raw.includes(m));
-  return hit || raw;
-}
-
-function grantedModules(moduleRights) {
-  const mr = moduleRights;
-  if (Array.isArray(mr)) return mr.map(normalizeModule).filter(Boolean);
-  if (typeof mr === 'string') return mr.split(',').map(normalizeModule).filter(Boolean);
-  if (mr && typeof mr === 'object') {
-    return Object.entries(mr).filter(([, v]) => v === true || v === 'true').map(([k]) => normalizeModule(k));
-  }
-  return [];
-}
-
-function allowed(item, session) {
-  const rank = ROLE_RANK[session.role] || 1;
-  if (rank < item.min) return false;
-  if (rank >= 4) return true;
-  if (item.id === 'overview' || item.id === 'notifications') return true;
-  const granted = grantedModules(session.moduleRights);
-  if (!granted.length) return true;
-  const expanded = new Set();
-  granted.forEach((g) => (MODULE_ALIASES[g] || [g]).forEach((id) => expanded.add(id)));
-  return expanded.has(item.id);
-}
 
 function App() {
   const [authed, setAuthed] = useState(isAuthenticated());
@@ -115,6 +28,7 @@ function viewFromHash() {
 function Shell({ session, onAuthChange }) {
   const toast = useToast();
   const [view, setView] = useState(viewFromHash() || 'overview');
+  const isMobile = useIsMobile();
   const [navOpen, setNavOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -184,15 +98,18 @@ function Shell({ session, onAuthChange }) {
     }
   }
 
-  const sections = NAV
-    .map((s) => ({ ...s, items: s.items.filter((it) => allowed(it, session)) }))
-    .filter((s) => s.items.length);
+  const mobileRoute = /^m(\/|$)/.test(String(view || ''));
+  if (isMobile || mobileRoute) {
+    return <MobileShell session={session} onAuthChange={onAuthChange} unread={unread} online={online} />;
+  }
+
+  const sections = sectionsFor(session);
   if (!sections.some((s) => s.items.some((it) => it.id === view))) {
     const first = sections[0] && sections[0].items[0];
     if (first && view !== first.id) { setView(first.id); }
   }
   const activeItem = sections.flatMap((s) => s.items).find((it) => it.id === view);
-  const Active = activeItem ? activeItem.view : Overview;
+  const Active = activeItem ? activeItem.view : null;
 
   const sessionProps = { session };
   const checkedIn = Boolean(session.checkedIn);
@@ -248,13 +165,13 @@ function Shell({ session, onAuthChange }) {
           </div>
         </header>
         <main className="content">
-          <Active {...sessionProps}
+          {Active ? <Active {...sessionProps}
             checkedIn={checkedIn}
             count={unread}
             onNavigate={(id) => setView(id)}
             onSession={(next) => { saveSession({ ...(currentSession() || {}), ...next }); }}
             onAuthChange={onAuthChange}
-          />
+          /> : null}
         </main>
       </div>
     </div>

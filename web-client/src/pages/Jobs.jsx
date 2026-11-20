@@ -1,12 +1,23 @@
 import { useMemo, useState } from 'react';
 import { call } from '../api.js';
 import {
-  Btn, Card, Empty, Field, Modal, PageHeader, Spinner, Table, useAsync, useToast
+  Btn, Card, Empty, Field, Modal, PageHeader, Spinner, Table, useAsync, useToast,
+  VoiceTextInput, VoiceTextarea, SmartFillButton
 } from '../components.jsx';
 import { clientRequestId } from '../lib/utils.js';
 
 const STATUSES = ['InProgress', 'Completed', 'Delayed', 'Interrupted', 'Cancelled'];
 const HOLD_CATEGORIES = ['Spare Parts', 'Customer Unavailable', 'Access Issue', 'Vehicle Breakdown', 'Weather', 'Other'];
+const JOB_FIELDS_SCHEMA = [
+  { key: "client", label: "Client", type: "text" },
+  { key: "vehicleNo", label: "Vehicle number", type: "text" },
+  { key: "delayReason", label: "Delay reason", type: "text" },
+  { key: "rootCause", label: "Root cause", type: "text" },
+  { key: "checklist", label: "Checklist", type: "text" },
+  { key: "partsUsed", label: "Parts used", type: "text" },
+  { key: "serviceNotes", label: "Service notes", type: "text" },
+  { key: "resolutionNotes", label: "Resolution notes", type: "text" }
+];
 
 function elapsed(task) {
   if (!task) return '—';
@@ -186,9 +197,15 @@ function JobModal({ open, task, session, checkedIn, onClose, onSaved }) {
     }
   }
 
+  async function applySmartFill(fields) {
+    if (!fields || typeof fields !== "object") return;
+    setForm((f) => ({ ...f, ...fields }));
+    toast.push("Fields filled from voice.", "ok");
+  }
+
   return (
     <Modal open={open} wide title={editing ? `Edit ${task.jobId}` : 'New job card'} onClose={onClose}
-      footer={<><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save job'}</Btn></>}>
+      footer={<><Btn variant="ghost" onClick={onClose}>Cancel</Btn><SmartFillButton schema={JOB_FIELDS_SCHEMA} onFields={applySmartFill} disabled={busy} /><Btn onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save job'}</Btn></>}>
       <div className="form-grid">
         <Field label="Client"><input value={value('client')} onChange={set('client')} /></Field>
         <Field label="Hub"><input value={value('hub')} onChange={set('hub')} placeholder={session.hub || 'HUB'} /></Field>
@@ -205,12 +222,12 @@ function JobModal({ open, task, session, checkedIn, onClose, onSaved }) {
             {HOLD_CATEGORIES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </Field>
-        <Field label="Delay reason"><input value={value('delayReason')} onChange={set('delayReason')} /></Field>
-        <Field label="Root cause"><input value={value('rootCause')} onChange={set('rootCause')} /></Field>
+        <Field label="Delay reason"><VoiceTextInput value={value('delayReason')} onChange={set('delayReason')} /></Field>
+        <Field label="Root cause"><VoiceTextInput value={value('rootCause')} onChange={set('rootCause')} /></Field>
         <Field label="Checklist"><input value={value('checklist')} onChange={set('checklist')} placeholder="Comma separated" /></Field>
         <Field label="Parts used"><input value={value('partsUsed')} onChange={set('partsUsed')} /></Field>
-        <Field label="Service notes"><textarea value={value('serviceNotes')} onChange={set('serviceNotes')} /></Field>
-        <Field label="Resolution notes"><textarea value={value('resolutionNotes')} onChange={set('resolutionNotes')} /></Field>
+        <Field label="Service notes"><VoiceTextarea value={value('serviceNotes')} onChange={set('serviceNotes')} rows="2" /></Field>
+        <Field label="Resolution notes"><VoiceTextarea value={value('resolutionNotes')} onChange={set('resolutionNotes')} rows="2" /></Field>
       </div>
       {msg ? <div className="login-msg">{msg}</div> : null}
     </Modal>

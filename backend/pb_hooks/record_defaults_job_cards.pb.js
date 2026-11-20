@@ -21,7 +21,8 @@ onRecordBeforeCreateRequest((e) => {
     try {
         const rec = e.record;
         const dao = $app.dao();
-
+        // Legacy imports carry their own codes; never renumber or auto-complain.
+        if (String(rec.get("source") || "") === "LEGACY_CSV" || Number(rec.get("code_version") || 0) >= 3) return;
         // --- inlined helpers (0.22 JSVM: nothing top-level is visible) ---
         const istNow = () => new Date(Date.now() + 19800000).toISOString();
         const pad = (n, w) => { let s = String(n); while (s.length < w) s = "0" + s; return s; };
@@ -195,6 +196,7 @@ onRecordBeforeCreateRequest((e) => {
 onRecordAfterCreateRequest((e) => {
     try {
         const rec = e.record;
+        if (String(rec.get("source") || "") === "LEGACY_CSV" || Number(rec.get("code_version") || 0) >= 3) return;
         if (String(rec.get("complaint_id") || "")) return;
         const complaintNo = String(rec.get("complaint_no") || "");
         if (!complaintNo) return;

@@ -62,6 +62,17 @@ export default function Admin({ session }) {
                 { key: 'role', label: 'Role', render: (r) => <Badge tone={r.role === 'Administrator' ? 'primary' : r.role === 'Moderator' ? 'info' : 'neutral'}>{r.role}</Badge> },
                 { key: 'hub', label: 'Hub', render: (r) => r.hub || '—' },
                 { key: 'region', label: 'Region', render: (r) => r.region || '—' },
+                {
+                  key: 'geofence', label: 'Zone',
+                  render: (r) => {
+                    const m = r.geofenceMode || 'INHERIT_HUB';
+                    const tone = m === 'CUSTOM' ? 'info' : m === 'ROAMING' ? 'warn' : 'neutral';
+                    const label = m === 'CUSTOM'
+                      ? `Custom ${Math.round(Number(r.geofenceRadiusM) || 0)} m`
+                      : m === 'ROAMING' ? 'Roaming' : 'Hub';
+                    return <Badge tone={tone}>{label}</Badge>;
+                  }
+                },
                 { key: 'status', label: 'Status', render: (r) => <span className={`badge ${r.status === 'Active' ? 'ok' : 'neutral'}`}>{r.status || 'Active'}</span> },
                 {
                   key: 'actions', label: 'Actions',
@@ -82,9 +93,7 @@ export default function Admin({ session }) {
       </Card>
 
       {settings.data ? (
-        <Card title="Operational settings">
-          <pre className="mono small" style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(settings.data.settings || settings.data, null, 2)}</pre>
-        </Card>
+        <ConfigPanel settings={settings.data.settings || settings.data || {}} onSaved={() => settings.reload()} />
       ) : null}
 
       {editing ? <UserModal user={editing} session={session} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); users.reload(); }} /> : null}
@@ -102,6 +111,10 @@ function UserModal({ user, session, onClose, onSaved }) {
     hub: user.hub || session.hub || '',
     region: user.region || '',
     phone: user.phone || '',
+    geofenceMode: user.geofenceMode || 'INHERIT_HUB',
+    geofenceLat: user.geofenceLat == null || user.geofenceLat === 0 ? '' : user.geofenceLat,
+    geofenceLng: user.geofenceLng == null || user.geofenceLng === 0 ? '' : user.geofenceLng,
+    geofenceRadiusM: user.geofenceRadiusM || 250,
     password: isNew ? '' : undefined
   });
   const [msg, setMsg] = useState('');
@@ -124,6 +137,17 @@ function UserModal({ user, session, onClose, onSaved }) {
         });
         toast.push('User created.', 'ok');
       } else {
+        const canSetZone = user.userId !== session.userId &&
+          user.role !== 'Administrator' && user.role !== 'Platform';
+        if (canSetZone) {
+          await call('adminSetGeofence', {
+            userId: user.userId || user.username,
+            mode: form.geofenceMode,
+            lat: Number(form.geofenceLat),
+            lng: Number(form.geofenceLng),
+            radiusM: Number(form.geofenceRadiusM)
+          });
+        }
         await call('adminUpdateUser', {
           userId: user.userId || user.username,
           fullName: form.fullName,
@@ -155,10 +179,108 @@ function UserModal({ user, session, onClose, onSaved }) {
         </Field>
         <Field label="Hub" hint="Required for supervisors (they become the hub in-charge)"><input value={form.hub} onChange={set('hub')} /></Field>
         <Field label="Region" hint="Required for moderators (region in-charge)"><input value={form.region} onChange={set('region')} /></Field>
+        {!isNew ? (
+          <>
+            <Field label="Geofence mode" hint="Tip: draw custom zones on Live Map → Geofences">
+              <select value={form.geofenceMode} onChange={set('geofenceMode')}>
+                <option value="INHERIT_HUB">Inherit hub radius</option>
+                <option value="CUSTOM">Custom zone</option>
+                <option value="ROAMING">Roaming (no limit)</option>
+              </select>
+            </Field>
+            {form.geofenceMode === 'CUSTOM' ? (
+              <>
+                <Field label="Zone latitude">
+                  <input type="number" step="0.000001" value={form.geofenceLat} onChange={set('geofenceLat')} />
+                </Field>
+                <Field label="Zone longitude">
+                  <input type="number" step="0.000001" value={form.geofenceLng} onChange={set('geofenceLng')} />
+                </Field>
+                <Field label="Zone radius (m)" hint="25 to 5000 metres">
+                  <input type="number" min="25" max="5000" step="5" value={form.geofenceRadiusM} onChange={set('geofenceRadiusM')} />
+                </Field>
+              </>
+            ) : null}
+          </>
+        ) : null}
         <Field label="Phone"><input value={form.phone} onChange={set('phone')} /></Field>
         {isNew ? <Field label="Initial password *"><input type="password" value={form.password} onChange={set('password')} /></Field> : null}
       </div>
       {msg ? <div className="login-msg">{msg}</div> : null}
     </Modal>
+  );
+}
+
+const CONFIG_FIELDS = [
+  { key: 'gemini_api_key', label: 'Google Gemini API key', secret: true, hint: 'Powers voice-to-text and handwriting OCR. Stored server-side; shown masked.' },
+  { key: 'gemini_model', label: 'Gemini model', placeholder: 'gemini-2.5-flash' },
+  { key: 'google_maps_api_key', label: 'Google Maps API key', secret: true },
+  { key: 'drive_client_id', label: 'Drive OAuth client ID', secret: true },
+  { key: 'drive_client_secret', label: 'Drive OAuth client secret', secret: true },
+  { key: 'drive_refresh_token', label: 'Drive refresh token', secret: true },
+  { key: 'drive_archive_folder_id', label: 'Drive archive folder ID' },
+  { key: 'archive_after_days', label: 'Hot to cold archive after (days)', placeholder: '30' },
+  { key: 'app_base_url', label: 'Public app base URL', placeholder: 'https://example.com' }
+];
+
+function ConfigPanel({ settings, onSaved }) {
+  const toast = useToast();
+  const [form, setForm] = useState({});
+  const [extraKey, setExtraKey] = useState('');
+  const [extraVal, setExtraVal] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const value = (k) => (form[k] === undefined ? '' : form[k]);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const isSet = (k) => Boolean(settings && settings[k]);
+
+  async function save() {
+    const update = {};
+    Object.keys(form).forEach((k) => {
+      if (String(form[k] || '').trim() !== '') update[k] = String(form[k]).trim();
+    });
+    if (extraKey.trim() && extraVal.trim()) update[extraKey.trim()] = extraVal.trim();
+    if (!Object.keys(update).length) {
+      toast.push('Nothing to save — enter a value first.', 'bad');
+      return;
+    }
+    setBusy(true);
+    try {
+      await call('adminUpdateSettings', { update });
+      toast.push('Configuration saved.', 'ok');
+      setForm({}); setExtraKey(''); setExtraVal('');
+      if (onSaved) onSaved();
+    } catch (err) {
+      toast.push(err.message, 'bad');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card title="Configuration &amp; Secrets"
+      subtitle="API keys and service credentials stored in the config table. Secret values are masked and never returned in full."
+      actions={<Btn size="sm" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save configuration'}</Btn>}>
+      <div className="form-grid">
+        {CONFIG_FIELDS.map((f) => (
+          <Field key={f.key} label={f.label}
+            hint={<span>{f.hint ? f.hint + ' ' : ''}{isSet(f.key)
+              ? <Badge tone="ok">{String(settings[f.key])}</Badge>
+              : <Badge tone="neutral">not set</Badge>}</span>}>
+            <input
+              type={f.secret ? 'password' : 'text'}
+              autoComplete="off"
+              placeholder={isSet(f.key) ? 'Leave blank to keep current value' : (f.placeholder || '')}
+              value={value(f.key)}
+              onChange={set(f.key)}
+            />
+          </Field>
+        ))}
+      </div>
+      <div className="row" style={{ gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+        <input style={{ maxWidth: 240 }} placeholder="custom key (e.g. smtp_password)" value={extraKey} onChange={(e) => setExtraKey(e.target.value)} />
+        <input style={{ maxWidth: 320 }} type="password" autoComplete="off" placeholder="value" value={extraVal} onChange={(e) => setExtraVal(e.target.value)} />
+      </div>
+    </Card>
   );
 }

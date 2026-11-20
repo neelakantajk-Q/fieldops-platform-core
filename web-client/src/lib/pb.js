@@ -514,11 +514,17 @@ export async function pbCall(action, payload = {}) {
     }
     case 'getUsers': {
       const d = await directory();
-      return { ok: true, users: (d.users || []).map((u) => ({
+      return { ok: true, canEditGeofence: Boolean(d.canEditGeofence), actor: d.actor || null, users: (d.users || []).map((u) => ({
         id: u.id, userId: u.id, userCode: u.userCode, username: u.username,
         fullName: u.username, role: u.role, hub: ((d.hubs || []).find((h) => h.id === u.hubId) || {}).name || '',
+        hubId: u.hubId || '',
         region: ((d.regions || []).find((r) => r.id === u.regionId) || {}).name || '',
-        phone: u.phone, status: u.status, scope: u.scope
+        regionId: u.regionId || '',
+        phone: u.phone, status: u.status, scope: u.scope,
+        geofenceMode: u.geofenceMode || 'INHERIT_HUB',
+        geofenceLat: u.geofenceLat, geofenceLng: u.geofenceLng,
+        geofenceRadiusM: u.geofenceRadiusM,
+        geofenceUpdatedBy: u.geofenceUpdatedBy, geofenceUpdatedAt: u.geofenceUpdatedAt
       }))};
     }
     case 'mastersList': {
@@ -639,6 +645,14 @@ export async function pbCall(action, payload = {}) {
       if (!data || !data.success) fail(data || {}, 'Admin settings require an administrator session.');
       return { ok: true, settings: data.settings || {} };
     }
+    case 'adminUpdateSettings': {
+      const { data } = await pbFetch('/api/fieldops/admin-settings', {
+        method: 'POST',
+        body: { sessionToken: currentToken(), update: payload.update || {} }
+      });
+      if (!data || !data.success) fail(data || {}, 'Settings update failed.');
+      return { ok: true, settings: data.settings || {} };
+    }
     case 'getPlatformSettings': {
       const s = await pbCall('getAdminSettings');
       return {
@@ -651,6 +665,11 @@ export async function pbCall(action, payload = {}) {
       };
     }
     case 'adminCreateUser': {
+      const d = await directory();
+      const hub = (d.hubs || []).find((h) => h.name === payload.hub || h.hub_code === payload.hub);
+      const region = (d.regions || []).find((r) => r.name === payload.region || r.region_code === payload.region);
+      if (payload.hub && !hub) throw new Error(`Unknown hub "${payload.hub}".`);
+      if (payload.region && !region) throw new Error(`Unknown region "${payload.region}".`);
       const { data } = await pbFetch('/api/fieldops/admin-user', {
         method: 'POST',
         body: {
@@ -658,7 +677,9 @@ export async function pbCall(action, payload = {}) {
           passwordHash: (await sha256Hex(payload.password || 'changeme')).toLowerCase(),
           user: {
             username: payload.username, role: payload.role, phone: payload.phone,
-            moduleRights: payload.moduleRights
+            moduleRights: payload.moduleRights,
+            hubId: hub ? hub.id : '', regionId: region ? region.id : '',
+            scope: payload.scope
           }
         }
       });
@@ -666,12 +687,35 @@ export async function pbCall(action, payload = {}) {
       return { ok: true, user: data.user };
     }
     case 'adminUpdateUser': {
+      const d = await directory();
+      const hub = (d.hubs || []).find((h) => h.name === payload.hub || h.hub_code === payload.hub);
+      const region = (d.regions || []).find((r) => r.name === payload.region || r.region_code === payload.region);
+      if (payload.hub && !hub) throw new Error(`Unknown hub "${payload.hub}".`);
+      if (payload.region && !region) throw new Error(`Unknown region "${payload.region}".`);
+      const user = { role: payload.role, phone: payload.phone, status: payload.status };
+      if (payload.hub !== undefined) user.hubId = hub ? hub.id : '';
+      if (payload.region !== undefined) user.regionId = region ? region.id : '';
       const { data } = await pbFetch('/api/fieldops/admin-user', {
         method: 'POST',
-        body: { action: 'update', sessionToken: currentToken(), userId: payload.userId, user: { role: payload.role, phone: payload.phone, status: payload.status } }
+        body: { action: 'update', sessionToken: currentToken(), userId: payload.userId, user }
       });
       if (!data || !data.success) fail(data || {}, 'User update failed.');
       return { ok: true };
+    }
+    case 'adminSetGeofence': {
+      const { data } = await pbFetch('/api/fieldops/geofence-set', {
+        method: 'POST',
+        body: {
+          sessionToken: currentToken(),
+          userId: payload.userId,
+          mode: payload.mode || 'INHERIT_HUB',
+          lat: payload.lat,
+          lng: payload.lng,
+          radius: payload.radiusM || payload.radius
+        }
+      });
+      if (!data || !data.success) fail(data || {}, data && data.message || 'Geofence update failed.');
+      return { ok: true, geofence: data.geofence };
     }
     case 'adminSetPassword': {
       const { data } = await pbFetch('/api/fieldops/admin-user', {

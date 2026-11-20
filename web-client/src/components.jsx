@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { VoiceRecorder, useVoiceTranscribe, voiceSupported } from './lib/voice.js';
 
 /* ----------------------------- Toasts ----------------------------- */
 const ToastCtx = createContext({ push: () => {} });
@@ -256,3 +257,173 @@ export function useAsync(loader, deps = []) {
   }, [...deps, nonce]);
   return { ...state, reload: () => setNonce((n) => n + 1) };
 }
+
+/* ----------------------------- Voice input ----------------------------- */
+
+export function VoiceButton({ onResult, disabled = false, "aria-label": ariaLabel = "Voice input", title, compact = false }) {
+  const [recording, setRecording] = useState(false);
+  const recorderRef = useRef(null);
+  const { transcribe, busy } = useVoiceTranscribe();
+
+  const toggle = async () => {
+    if (disabled) return;
+    if (!recording) {
+      try {
+        recorderRef.current = new VoiceRecorder();
+        await recorderRef.current.start();
+        setRecording(true);
+      } catch (err) {
+        recorderRef.current = null;
+      }
+    } else {
+      setRecording(false);
+      try {
+        const audio = await recorderRef.current.stop();
+        recorderRef.current = null;
+        if (audio && audio.bytes > 0) {
+          const res = await transcribe(audio);
+          if (res && res.text) onResult(res.text);
+        }
+      } catch (err) { /* transcription error surfaced by hook */ }
+    }
+  };
+
+  const label = title || ariaLabel;
+  const cls = "voice-btn " + (compact ? "voice-btn--compact" : "") +
+    (recording ? " recording" : "") + (busy ? " busy" : "");
+
+  return (
+    <button
+      type="button"
+      className={cls}
+      disabled={disabled}
+      onClick={toggle}
+      aria-label={label}
+      title={label}
+    >
+      <span className="voice-icon">{recording ? "■" : "🎤"}</span>
+      {recording ? <span className="voice-status">Listening…</span> : null}
+      {busy ? <span className="voice-busy">…</span> : null}
+    </button>
+  );
+}
+
+export function VoiceTextInput({ label, hint, value, onChange, language = "auto", mode = "dictate", insert = "append", disabled, ...props }) {
+  const [recording, setRecording] = useState(false);
+  const recorderRef = useRef(null);
+  const { transcribe, busy } = useVoiceTranscribe({ language, mode });
+
+  const applyText = (text) => {
+    const next = insert === "replace" ? text : ((value || "") + (value ? " " : "") + text);
+    onChange({ target: { value: next } });
+  };
+
+  const toggle = async () => {
+    if (disabled) return;
+    if (!recording) {
+      try {
+        recorderRef.current = new VoiceRecorder();
+        await recorderRef.current.start();
+        setRecording(true);
+      } catch (err) { recorderRef.current = null; }
+    } else {
+      setRecording(false);
+      try {
+        const audio = await recorderRef.current.stop();
+        recorderRef.current = null;
+        if (audio && audio.bytes > 0) {
+          const res = await transcribe(audio);
+          if (res && res.text) applyText(res.text);
+        }
+      } catch (err) {}
+    }
+  };
+
+  return (
+    <Field label={label} hint={hint}>
+      <input value={value || ""} onChange={onChange} disabled={disabled} {...props} />
+      {!disabled && voiceSupported() ? (
+        <VoiceButton onResult={applyText} disabled={recording || busy} compact title={label} />
+      ) : null}
+    </Field>
+  );
+}
+
+export function VoiceTextarea({ label, hint, value, onChange, language = "auto", mode = "dictate", insert = "append", disabled, rows = 2, ...props }) {
+  const [recording, setRecording] = useState(false);
+  const recorderRef = useRef(null);
+  const { transcribe, busy } = useVoiceTranscribe({ language, mode });
+
+  const applyText = (text) => {
+    const next = insert === "replace" ? text : ((value || "") + (value ? "\n" : "") + text);
+    onChange({ target: { value: next } });
+  };
+
+  const toggle = async () => {
+    if (disabled) return;
+    if (!recording) {
+      try {
+        recorderRef.current = new VoiceRecorder();
+        await recorderRef.current.start();
+        setRecording(true);
+      } catch (err) { recorderRef.current = null; }
+    } else {
+      setRecording(false);
+      try {
+        const audio = await recorderRef.current.stop();
+        recorderRef.current = null;
+        if (audio && audio.bytes > 0) {
+          const res = await transcribe(audio);
+          if (res && res.text) applyText(res.text);
+        }
+      } catch (err) {}
+    }
+  };
+
+  return (
+    <Field label={label} hint={hint}>
+      <textarea value={value || ""} onChange={onChange} rows={rows} disabled={disabled} {...props} />
+      {!disabled && voiceSupported() ? (
+        <VoiceButton onResult={applyText} disabled={recording || busy} compact title={label} />
+      ) : null}
+    </Field>
+  );
+}
+
+export function SmartFillButton({ schema, onFields, language = "auto", disabled }) {
+  const [busy, setBusy] = useState(false);
+  const recorderRef = useRef(null);
+  const { transcribe } = useVoiceTranscribe({ language, mode: "smartfill" });
+
+  const toggle = async () => {
+    if (disabled) return;
+    setBusy(true);
+    try {
+      if (!recorderRef.current) recorderRef.current = new VoiceRecorder();
+      if (!recorderRef.current._started) {
+        await recorderRef.current.start();
+        recorderRef.current._started = true;
+        return;
+      }
+      const audio = await recorderRef.current.stop();
+      recorderRef.current._started = false;
+      recorderRef.current = null;
+      if (audio && audio.bytes > 0) {
+        const res = await transcribe(audio);
+        if (res && res.fields) onFields(res.fields);
+      }
+    } catch (err) {
+      setBusy(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button type="button" className={`voice-btn voice-btn--smartfill ${busy ? "busy" : ""}`} disabled={disabled} onClick={toggle} aria-label="Speak to fill form" title="Speak to fill form">
+      <span className="voice-icon">🗣️</span>
+      {busy ? <span className="voice-busy">…</span> : <span className="voice-status">Speak to fill</span>}
+    </button>
+  );
+}
+
