@@ -101,6 +101,15 @@ onRecordBeforeCreateRequest((e) => {
         rec.set("distance_from_hub_meters", Math.round(distance * 10) / 10);
         rec.set("within_geofence", distance <= radius);
 
+        // Auto-checkout (geofence-exit / EOD / breach-with-active-job) is
+        // recorded, never rejected: the device may be outside the radius when
+        // the timer fires. The cron/device marks it auto_checkout=true.
+        if (rec.get("auto_checkout") === true ||
+            String(rec.get("auto_checkout")).toLowerCase() === "true") {
+            rec.set("status", "Verified");
+            return;
+        }
+
         // Telemetry events from the bubble: record + classify, never reject.
         // BREACH = more than radius + 100m buffer beyond the geofence center.
         if (action.indexOf("Geo") === 0) {

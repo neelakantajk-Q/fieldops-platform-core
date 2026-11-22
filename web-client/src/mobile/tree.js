@@ -12,6 +12,8 @@ import Workflows from '../pages/Workflows.jsx';
 import Admin from '../pages/Admin.jsx';
 import Platform from '../pages/Platform.jsx';
 import Performance from '../pages/Performance.jsx';
+import DealerVisits from '../pages/DealerVisits.jsx';
+import Person360 from '../pages/Person360.jsx';
 
 const JOB_STATUS = {
   inprogress: 'InProgress',
@@ -355,6 +357,8 @@ export const MODULES = [
   { id: 'notifications', label: 'Alerts', short: 'AL', icon: 'bell', tone: 'amber', min: 1, screen: Notifications },
   { id: 'reports', label: 'Reports & MIS', short: 'MI', icon: 'chart', tone: 'lime', min: 2, screen: Reports },
   { id: 'performance', label: 'Performance', short: 'PF', icon: 'chart', tone: 'violet', min: 2, screen: Performance },
+  { id: 'dealervisits', label: 'Dealer Visits', short: 'DV', icon: 'route', tone: 'teal', min: 2, screen: DealerVisits },
+  { id: 'person360', label: 'Person 360', short: 'P3', icon: 'users', tone: 'violet', min: 2, screen: Person360 },
   { id: 'masters', label: 'Master Data', short: 'MD', icon: 'grid', tone: 'slate', min: 2, screen: Masters },
   { id: 'workflows', label: 'Workflows', short: 'WF', icon: 'route', tone: 'slate', min: 2, screen: Workflows },
   { id: 'admin', label: 'Admin Panel', short: 'AD', icon: 'settings', tone: 'rose', min: 4, screen: Admin },

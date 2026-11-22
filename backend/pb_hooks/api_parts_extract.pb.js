@@ -309,6 +309,8 @@ routerAdd("POST", "/api/fieldops/parts/extract", (c) => {
                 rec.set("locked", false);
                 rec.set("source", String(body.source || (llmUsed ? "OCR_LLM" : "OCR_TEXT")));
                 rec.set("resolved", true);
+                rec.set("confidence", Math.round((l.score || 1) * 100) / 100);
+                rec.set("needs_review", !l.resolved || l.matchType === "PARTIAL");
                 rec.set("revision", 1);
                 dao.saveRecord(rec);
                 existing[key] = true;
@@ -331,16 +333,33 @@ routerAdd("POST", "/api/fieldops/parts/extract", (c) => {
         } catch (err) { /* audit best effort */ }
     }
 
+    if (body.auto === true) {
+        try {
+            job.set("parts_extract_status", "DONE");
+            job.set("parts_extract_at", new Date().toISOString());
+            dao.saveRecord(job);
+        } catch (err) { /* ignore */ }
+    }
+
     let resolvedCount = 0;
-    for (const l of lines) { if (l.resolved) resolvedCount++; }
+    for (const l of lines) {
+        if (l.resolved) resolvedCount++;
+        l.confidence = l.score != null ? Math.round(l.score * 100) / 100 : (l.resolved ? 1 : 0);
+    }
 
     return c.json(200, {
         success: true,
-        job: { id: job.id, jobCode: String(job.get("job_code") || "") },
+        job: {
+            id: job.id,
+            jobCode: String(job.get("job_code") || ""),
+            partsExtractStatus: String(job.get("parts_extract_status") || "")
+        },
         lines: lines,
         counts: { total: lines.length, resolved: resolvedCount, unresolved: lines.length - resolvedCount },
         llm: llmUsed,
         llmError: llmError,
-        applied: body.apply === true ? { created: created, skipped: skipped, ids: createdIds } : null
+        applied: (body.apply === true || body.auto === true)
+            ? { created: created, skipped: skipped, ids: createdIds }
+            : null
     });
 });

@@ -50,6 +50,7 @@ onRecordBeforeUpdateRequest((e) => {
     const grossTatMinutes = Math.max(0, Math.round((completeMs - startMs) / 60000));
 
     let totalHoldMinutes = 0;
+    let lastHoldMs = NaN;
     try {
         const holds = $app.dao().findRecordsByFilter(
             "job_card_holds",
@@ -61,6 +62,8 @@ onRecordBeforeUpdateRequest((e) => {
         );
         for (let i = 0; i < holds.length; i++) {
             totalHoldMinutes += Number(holds[i].get("duration_minutes")) || 0;
+            const h = toMs(holds[i].get("held_at"));
+            if (isFinite(h) && (isNaN(lastHoldMs) || h > lastHoldMs)) lastHoldMs = h;
         }
     } catch (err) {
         totalHoldMinutes = 0;
@@ -68,6 +71,10 @@ onRecordBeforeUpdateRequest((e) => {
 
     const activeWrenchMinutes = Math.max(0, grossTatMinutes - totalHoldMinutes);
     const totalDowntimeMinutes = Math.max(0, Math.round((releasedMs - breakdownMs) / 60000));
+    // Hold -> stop: the downtime segment from the last hold start to job stop.
+    const holdToStopMinutes = isFinite(lastHoldMs)
+        ? Math.max(0, Math.round((completeMs - lastHoldMs) / 60000))
+        : 0;
 
     const iso = (ms) => new Date(ms).toISOString();
     rec.set("job_completed_at", completedRaw ? completedRaw : iso(completeMs));
@@ -76,4 +83,5 @@ onRecordBeforeUpdateRequest((e) => {
     rec.set("total_hold_minutes", totalHoldMinutes);
     rec.set("active_wrench_minutes", activeWrenchMinutes);
     rec.set("total_downtime_minutes", totalDowntimeMinutes);
+    rec.set("hold_to_stop_minutes", holdToStopMinutes);
 }, "job_cards");

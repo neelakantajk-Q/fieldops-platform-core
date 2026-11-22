@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { call } from '../api.js';
 import { Btn, Card, Empty, Field, Modal, PageHeader, Spinner, Table, Tabs, ToastProvider, useToast, useAsync } from '../components.jsx';
 import { getApiBaseUrl } from '../config.js';
 import { currentToken } from '../lib/pb.js';
+import { listRecords } from '../lib/fieldops.js';
 
 const base = getApiBaseUrl();
 const token = currentToken();
@@ -69,7 +70,7 @@ function DownloadCard({ session }) {
         <div className="row">
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={{ width: 140 }} placeholder="From" />
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={{ width: 140 }} placeholder="To" />
-          <label><input type="checkbox" checked={unresolved} onChange={(e) => setUnresolved(e.target.checked)} style={{ width: "auto", marginRight: 6 }} /> Unresolved only</label>
+          <label><input type="checkbox" checked={unresolved} onChange={(e) => setUnresolved(e.target.checked)} style={{ width: "auto", marginRight: 6 }} /> UNBILLED only</label>
           <Btn onClick={x.reload} disabled={x.loading}>{x.loading ? "Generating…" : "Download CSV"}</Btn>
         </div>
       }>
@@ -122,6 +123,21 @@ function UploadCard({ session }) {
   const [preview, setPreview] = useState([]);
   const [result, setResult] = useState(null);
   const [applied, setApplied] = useState(false);
+  const [partCodes, setPartCodes] = useState(null);
+
+  useEffect(() => {
+    listRecords('parts_master', 'filter=(active=true)')
+      .then((rows) => {
+        const set = new Set((rows || []).map((p) => String(p.part_code || '').trim().toUpperCase()));
+        setPartCodes(set);
+      })
+      .catch(() => setPartCodes(null));
+  }, []);
+
+  const unknownCodes = preview
+    .map((r) => String(r.part_code || '').trim().toUpperCase())
+    .filter((c) => c && partCodes && !partCodes.has(c));
+  const unknownSet = new Set(unknownCodes);
 
   const handleFile = (e) => {
     const f = e.target.files && e.target.files[0];
@@ -171,12 +187,34 @@ function UploadCard({ session }) {
       ) : (
         <>
           <p className="small muted">{preview.length} row(s) in file.</p>
+          {partCodes === null ? null : unknownCodes.length ? (
+            <div className="hint-banner" style={{ marginBottom: 8 }}>
+              {unknownCodes.length} part code{unknownCodes.length === 1 ? '' : 's'} not found in the parts master:
+              {' '}<span className="mono small">{Array.from(new Set(unknownCodes)).slice(0, 8).join(', ')}</span>
+              {new Set(unknownCodes).size > 8 ? '…' : ''}
+            </div>
+          ) : (
+            <div className="hint-banner" style={{ borderColor: 'var(--ok,#22c55e)', marginBottom: 8 }}>
+              Pre-check passed — every part code exists in the parts master.
+            </div>
+          )}
           <Table
             columns={[
               { key: "line_uid", label: "Line", render: (r) => r.line_uid || "—" },
               { key: "job_card_no", label: "Job card", render: (r) => r.job_card_no || "—" },
               { key: "part_code", label: "Part code", render: (r) => r.part_code || "—" },
-              { key: "qty", label: "Qty", render: (r) => r.qty || "—" }
+              { key: "qty", label: "Qty", render: (r) => r.qty || "—" },
+              {
+                key: "precheck", label: "Pre-check",
+                render: (r) => {
+                  const code = String(r.part_code || '').trim().toUpperCase();
+                  if (!code) return <span className="badge warn">MISSING</span>;
+                  if (partCodes === null) return <span className="badge neutral">—</span>;
+                  return unknownSet.has(code)
+                    ? <span className="badge bad">UNKNOWN</span>
+                    : <span className="badge ok">OK</span>;
+                }
+              }
             ]}
             rows={preview.slice(0, 30)}
             empty="No rows."

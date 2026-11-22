@@ -33,7 +33,8 @@ async function loadHome(session) {
     call('getHoldRequests', {}),
     call('getAuditLogs', { limit: 6 }),
     fieldopsPost('/api/fieldops/capa/list', {}),
-    fieldopsPost('/api/fieldops/billing/list', {})
+    fieldopsPost('/api/fieldops/billing/list', {}),
+    call('homeSummary', {})
   ]);
   const pick = (i, key) => {
     const r = results[i];
@@ -50,6 +51,10 @@ async function loadHome(session) {
   const audit = pick(5, 'logs');
   const capa = pick(6, 'items');
   const billing = pick(7, 'items');
+  const summaryResult = results[8];
+  const summary = summaryResult && summaryResult.status === 'fulfilled' && summaryResult.value && summaryResult.value.success
+    ? summaryResult.value
+    : null;
 
   const mine = (t) => String(t.assignedUserId || '') === String(session.username || '');
   const openJobs = tasks.filter((t) => t.status === 'InProgress' || t.status === 'Delayed' || t.status === 'OnHold');
@@ -68,6 +73,7 @@ async function loadHome(session) {
       complaintNo: activeJob.complaintNo
     } : null,
     checkedIn: Boolean(attendance),
+    summary,
     counts: {
       jobs: openJobs.length,
       attendance: daily.filter((d) => d.checkIn && !d.checkOut).length,
@@ -135,7 +141,17 @@ export function Home({ session, unread }) {
   const active = data && data.activeJob;
   const timer = active && active.startTime ? humanDuration(now - new Date(active.startTime).getTime()) : '';
 
-  const checkedIn = Boolean(data && data.checkedIn);
+  const summary = data && data.summary;
+  const breach = summary && summary.breach;
+  const pendingProof = summary && summary.attendance && summary.attendance.pendingProof;
+  const kpi = summary && summary.kpi;
+  const lastOut = summary && summary.attendance && summary.attendance.lastCheckOut;
+  const checkedIn = summary
+    ? Boolean(summary.attendance && summary.attendance.checkedIn)
+    : Boolean(data && data.checkedIn);
+  const breachLeft = breach && breach.remainingSec != null
+    ? humanDuration(Math.max(0, breach.remainingSec) * 1000)
+    : '';
 
   async function startCheckIn() {
     if (nativeAvailable()) { nativeCall('startAttendance'); return; }
@@ -242,6 +258,56 @@ export function Home({ session, unread }) {
             </>
           )}
         </section>
+
+        {breach && breach.active ? (
+          <div style={{ margin: '0 16px 12px', padding: '10px 14px', borderRadius: 14, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)' }}>
+            <strong style={{ display: 'block', color: '#ef4444' }}>Outside geofence</strong>
+            <span className="small">Auto check-out in {breachLeft || '—'}. Return to the hub or start a valid job.</span>
+          </div>
+        ) : null}
+
+        {pendingProof ? (
+          <div style={{ margin: '0 16px 12px', padding: '10px 14px', borderRadius: 14, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)' }}>
+            <strong style={{ display: 'block', color: '#f59e0b' }}>Checkout photo pending</strong>
+            <span className="small">Your auto check-out needs a photo proof.</span>
+            <button type="button" className="m-btn ghost" style={{ marginTop: 8 }} onClick={() => go('attendance')}>Complete photo</button>
+          </div>
+        ) : null}
+
+        {kpi ? (
+          <section className="m-quick-row" aria-label="Today">
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, padding: '0 16px' }}>
+                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'var(--m-card, rgba(255,255,255,0.06))' }}>
+                  <span className="m-tile-meta">Jobs today</span>
+                  <strong style={{ display: 'block', fontSize: 20 }}>{kpi.jobsToday || 0}</strong>
+                </div>
+                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'var(--m-card, rgba(255,255,255,0.06))' }}>
+                  <span className="m-tile-meta">Closed</span>
+                  <strong style={{ display: 'block', fontSize: 20 }}>{kpi.closedToday || 0}</strong>
+                </div>
+                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'var(--m-card, rgba(255,255,255,0.06))' }}>
+                  <span className="m-tile-meta">Unbilled parts</span>
+                  <strong style={{ display: 'block', fontSize: 20 }}>{kpi.unbilledParts || 0}</strong>
+                </div>
+                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'var(--m-card, rgba(255,255,255,0.06))' }}>
+                  <span className="m-tile-meta">Alerts</span>
+                  <strong style={{ display: 'block', fontSize: 20 }}>{kpi.unreadAlerts || 0}</strong>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {lastOut && lastOut.timestamp ? (
+          <div style={{ margin: '0 16px 12px', padding: '10px 14px', borderRadius: 14, background: 'var(--m-card, rgba(255,255,255,0.06))' }}>
+            <strong style={{ display: 'block' }}>Last shift</strong>
+            <span className="small">
+              {lastOut.auto ? 'Auto check-out' : 'Checked out'} · shift {humanDuration((lastOut.shiftMinutes || 0) * 60000)}
+              {' · '}{lastOut.cardsClosed || 0} closed · {lastOut.cardsHeld || 0} held
+            </span>
+          </div>
+        ) : null}
 
         <section className="m-quick-row" aria-label="Quick actions">
           <button type="button" className="m-quick" onClick={checkedIn ? doCheckOut : startCheckIn}>

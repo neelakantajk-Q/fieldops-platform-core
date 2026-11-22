@@ -1,21 +1,28 @@
 import { useState } from 'react';
+import { call } from '../api.js';
 import { Btn, Card, Field, PageHeader, Spinner, Table, useAsync, useToast } from '../components.jsx';
 import { fieldopsPost, listRecords } from '../lib/fieldops.js';
+import { getApiBaseUrl } from '../config.js';
 
 const OPEN_JOB_STATES = ['OPEN', 'IN_PROGRESS', 'ON_HOLD'];
 
 export default function PartExtract() {
   const toast = useToast();
   const jobs = useAsync(() => listRecords('job_cards'), []);
+  const queue = useAsync(() => call('partsReviewQueue'), []);
   const [jobCardId, setJobCardId] = useState('');
   const [text, setText] = useState('');
   const [image, setImage] = useState(null);
   const [useLlm, setUseLlm] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [prefillBusy, setPrefillBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [rows, setRows] = useState([]);
+  const [qEdits, setQEdits] = useState({});
 
-  const jobRows = (jobs.data || []).filter((j) => OPEN_JOB_STATES.indexOf(j.status) >= 0);
+  const allJobs = jobs.data || [];
+  const jobRows = allJobs.filter((j) => OPEN_JOB_STATES.indexOf(j.status) >= 0 || j.parts_extract_status === 'PENDING');
+  const pendingProofJobs = allJobs.filter((j) => j.parts_extract_status === 'PENDING' && j.end_proof_photo);
   const selectedJob = jobRows.find((j) => j.id === jobCardId) || null;
 
   const pickImage = (e) => {
@@ -76,6 +83,44 @@ export default function PartExtract() {
   const setRow = (k, patch) => setRows((rs) => rs.map((r) => (r._k === k ? Object.assign({}, r, patch) : r)));
   const removeRow = (k) => setRows((rs) => rs.filter((r) => r._k !== k));
 
+  const loadEndProof = async (job) => {
+    if (!job || !job.end_proof_photo) return;
+    setPrefillBusy(true);
+    try {
+      const url = `${getApiBaseUrl()}/api/files/job_cards/${job.id}/${encodeURIComponent(job.end_proof_photo)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Could not fetch the end-proof photo (HTTP ${res.status}).`);
+      const blob = await res.blob();
+      const data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      const comma = data.indexOf(',');
+      setJobCardId(job.id);
+      setImage({ data: comma >= 0 ? data.slice(comma + 1) : data, mime: blob.type || 'image/jpeg', name: job.end_proof_photo });
+      setText('');
+      setResult(null);
+      setRows([]);
+      toast.push(`Loaded end-proof photo for ${job.job_code || job.id}. Tap Extract parts.`, 'ok');
+    } catch (e) {
+      toast.push(e.message, 'bad');
+    } finally {
+      setPrefillBusy(false);
+    }
+  };
+
+  const confirmQueueRow = async (r, patch) => {
+    try {
+      await call('confirmPartLine', Object.assign({ id: r.id }, patch), { queue: false });
+      toast.push('Part line confirmed.', 'ok');
+      queue.reload();
+    } catch (e) {
+      toast.push(e.message, 'bad');
+    }
+  };
+
   const apply = async () => {
     if (!rows.length) return;
     setBusy(true);
@@ -105,6 +150,23 @@ export default function PartExtract() {
         title="Part Extraction"
         subtitle="Read a job card (OCR text or photo), match part codes to the master, then post them to the job"
       />
+
+      {pendingProofJobs.length ? (
+        <Card title={`End-proof queue (${pendingProofJobs.length})`}
+          subtitle="Closed jobs whose handwritten end-proof photo was captured automatically. Load the photo, review the lines, then apply.">
+          <Table
+            columns={[
+              { key: 'job_code', label: 'Job', render: (j) => <strong>{j.job_code || j.id}</strong> },
+              { key: 'status', label: 'Status', render: (j) => <span className="badge neutral">{j.status}</span> },
+              { key: 'photo', label: 'End proof', render: (j) => <a className="btn ghost sm" target="_blank" rel="noreferrer" href={`${getApiBaseUrl()}/api/files/job_cards/${j.id}/${encodeURIComponent(j.end_proof_photo)}`}>View</a> },
+              { key: 'actions', label: '', render: (j) => <Btn size="sm" variant="ghost" disabled={prefillBusy} onClick={() => loadEndProof(j)}>Use photo</Btn> }
+            ]}
+            rows={pendingProofJobs}
+            rowKey={(j) => j.id}
+            empty="No pending end proofs."
+          />
+        </Card>
+      ) : null}
 
       <Card title="1 · Input"
         actions={<Btn size="sm" variant="ghost" onClick={reset} disabled={busy}>Clear</Btn>}>
@@ -193,6 +255,50 @@ export default function PartExtract() {
           />
         </Card>
       ) : null}
+
+      <Card title={`3 · Review queue${queue.data && queue.data.rows ? ` (${queue.data.rows.length})` : ''}`}
+        subtitle="Extracted lines flagged for review. Fix the part code or quantity, then confirm."
+        actions={<Btn size="sm" variant="ghost" onClick={queue.reload} disabled={queue.loading}>Refresh</Btn>}>
+        {queue.loading ? <Spinner label="Loading review queue…" /> : null}
+        {queue.error ? <div className="hint-banner">{queue.error.message}</div> : null}
+        {queue.data && !queue.loading ? (
+          <Table
+            columns={[
+              { key: 'jobCode', label: 'Job', render: (r) => <strong>{r.jobCode}</strong> },
+              {
+                key: 'partCode', label: 'Part code',
+                render: (r) => (
+                  <input className="mono" style={{ width: 170 }}
+                    value={(qEdits[r.id] && qEdits[r.id].partCode) !== undefined ? qEdits[r.id].partCode : r.partCode}
+                    onChange={(e) => setQEdits((m) => ({ ...m, [r.id]: { ...(m[r.id] || {}), partCode: e.target.value } }))} />
+                )
+              },
+              {
+                key: 'qty', label: 'Qty',
+                render: (r) => (
+                  <input type="number" min="1" style={{ width: 80 }}
+                    value={(qEdits[r.id] && qEdits[r.id].qty) !== undefined ? qEdits[r.id].qty : r.qty}
+                    onChange={(e) => setQEdits((m) => ({ ...m, [r.id]: { ...(m[r.id] || {}), qty: e.target.value } }))} />
+                )
+              },
+              { key: 'confidence', label: 'Confidence', render: (r) => <span className={`badge ${r.confidence >= 0.8 ? 'ok' : 'warn'}`}>{Math.round((r.confidence || 0) * 100)}%</span> },
+              { key: 'status', label: 'Status', render: (r) => <span className="badge neutral">{r.status || '—'}</span> },
+              {
+                key: 'actions', label: '',
+                render: (r) => (
+                  <Btn size="sm" variant="ghost" onClick={() => confirmQueueRow(r, {
+                    partCode: (qEdits[r.id] && qEdits[r.id].partCode) || r.partCode,
+                    qty: (qEdits[r.id] && qEdits[r.id].qty) || r.qty
+                  })}>Confirm</Btn>
+                )
+              }
+            ]}
+            rows={queue.data.rows || []}
+            rowKey={(r) => r.id}
+            empty="No lines need review."
+          />
+        ) : null}
+      </Card>
     </>
   );
 }

@@ -20,6 +20,8 @@ import Repairs from './pages/Repairs.jsx';
 import Custody from './pages/Custody.jsx';
 import PartExtract from './pages/PartExtract.jsx';
 import Billing from './pages/Billing.jsx';
+import DealerVisits from './pages/DealerVisits.jsx';
+import Person360 from './pages/Person360.jsx';
 
 export const ROLE_RANK = { Technician: 1, Supervisor: 2, Moderator: 3, Administrator: 4, Platform: 99 };
 
@@ -33,6 +35,8 @@ export const NAV = [
   ]},
   { section: 'Field', items: [
     { id: 'team', label: 'Team', min: 1, view: Team },
+    { id: 'person360', label: 'Person 360', min: 2, view: Person360 },
+    { id: 'dealervisits', label: 'Dealer Visits', min: 2, view: DealerVisits },
     { id: 'performance', label: 'Performance', min: 2, view: Performance },
     { id: 'map', label: 'Live Map', min: 1, view: LiveMap },
     { id: 'notifications', label: 'Notifications', min: 1, view: Notifications }
@@ -62,7 +66,10 @@ export const MODULE_ALIASES = {
   tasks: ['jobs', 'pending', 'capa', 'repairs', 'custody', 'partextract'],
   jobs: ['jobs', 'pending', 'capa', 'repairs', 'custody', 'partextract', 'bulkparts'],
   attendance: ['attendance'],
-  team: ['team', 'performance'],
+  team: ['team', 'performance', 'person360'],
+  dealer: ['dealervisits', 'person360'],
+  dealervisits: ['dealervisits', 'person360'],
+  person360: ['person360', 'team'],
   vehicles: ['vehicles', 'uptime', 'repairs', 'custody', 'partextract'],
   uptime: ['uptime', 'vehicles', 'capa'],
   reports: ['reports', 'capa', 'billing'],
@@ -81,7 +88,7 @@ export const MODULE_ALIASES = {
   performance: ['performance']
 };
 
-export const MODULE_NAMES = ['tasks', 'attendance', 'vehicles', 'team', 'reports', 'notifications', 'masters', 'workflows', 'capa', 'billing', 'repairs', 'custody', 'parts', 'inventory', 'partextract', 'admin', 'platform', 'performance'];
+export const MODULE_NAMES = ['tasks', 'attendance', 'vehicles', 'team', 'reports', 'notifications', 'masters', 'workflows', 'capa', 'billing', 'repairs', 'custody', 'parts', 'inventory', 'partextract', 'admin', 'platform', 'performance', 'dealer', 'dealervisits', 'person360'];
 
 export function normalizeModule(value) {
   const raw = String(value || '').toLowerCase().replace(/^module[-_]?/, '').replace(/[-_]?view$/, '').trim();

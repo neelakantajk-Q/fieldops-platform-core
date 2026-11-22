@@ -78,6 +78,11 @@ async function patch(name, id, body) {
   return data;
 }
 
+function fileUrl(collection, recordId, filename) {
+  if (!recordId || !filename) return '';
+  return `${normalizeBase()}/api/files/${collection}/${recordId}/${encodeURIComponent(filename)}`;
+}
+
 function dataUrlToBlob(dataUrl) {
   const [meta, b64] = String(dataUrl || '').split(',');
   const mime = (meta.match(/data:([^;]+)/) || [])[1] || 'image/jpeg';
@@ -160,7 +165,10 @@ function joinStatus(task) {
     holdApprovedBy: task.delay_reason || '',
     plateSource: task.plate_source || '',
     updatedBy: '', updatedByName: '',
-    updatedAt: task.updated, version: task.updated ? 2 : 1
+    updatedAt: task.updated, version: task.updated ? 2 : 1,
+    holdToStopMinutes: Number(task.hold_to_stop_minutes) || 0,
+    partsExtractStatus: task.parts_extract_status || 'NONE',
+    holdStartedAt: task.status === 'ON_HOLD' ? (task.updated || '') : ''
   };
 }
 
@@ -363,11 +371,31 @@ export async function pbCall(action, payload = {}) {
         const row = byUser[uid] || (byUser[uid] = {
           date: r.ist_date || (r.timestamp || '').slice(0, 10), userId: uid,
           hubName: r.hub_name || '', checkIn: '', checkOut: '', minutes: 0,
-          status: r.status || 'Verified', mock: String(r.status).indexOf('Mock') >= 0
+          status: r.status || 'Verified', mock: String(r.status).indexOf('Mock') >= 0,
+          checkInPhoto: '', checkOutPhoto: '', auto: false, checkoutReason: '',
+          shiftMinutes: 0, jobMinutes: 0, cardsClosed: 0, cardsHeld: 0, holdMinutes: 0,
+          pendingProof: false, pendingProofId: ''
         });
         const ts = r.timestamp ? new Date(String(r.timestamp).replace(' ', 'T')).toISOString() : '';
-        if (r.action === 'CheckIn' && !row.checkIn) row.checkIn = ts;
-        if (r.action === 'CheckOut') row.checkOut = ts;
+        if (r.action === 'CheckIn' && !row.checkIn) {
+          row.checkIn = ts;
+          row.checkInPhoto = fileUrl('attendance', r.id, r.photo_proof);
+        }
+        if (r.action === 'CheckOut') {
+          row.checkOut = ts;
+          row.checkOutPhoto = fileUrl('attendance', r.id, r.checkout_photo || r.photo_proof);
+          row.auto = r.auto_checkout === true;
+          row.checkoutReason = r.checkout_reason || '';
+          row.shiftMinutes = Number(r.shift_minutes) || 0;
+          row.jobMinutes = Number(r.job_minutes) || 0;
+          row.cardsClosed = Number(r.cards_closed) || 0;
+          row.cardsHeld = Number(r.cards_held) || 0;
+          row.holdMinutes = Number(r.hold_minutes) || 0;
+        }
+        if (r.photo_pending === true) {
+          row.pendingProof = true;
+          row.pendingProofId = r.id;
+        }
         if (r.action !== 'CheckIn' && r.action !== 'CheckOut' && row.status.indexOf('Rejected') < 0) {
           row.status = r.status;
         }
@@ -426,10 +454,137 @@ export async function pbCall(action, payload = {}) {
       fd.append('latitude', String(payload.lat || 0));
       fd.append('longitude', String(payload.lng || 0));
       fd.append('gps_accuracy_meters', String(payload.accuracy || 0));
-      fd.append('within_geofence', 'true');
+      fd.append('within_geofence', payload.withinGeoFence === false ? 'false' : 'true');
+      fd.append('checkout_reason', payload.reason || 'MANUAL');
+      fd.append('checkout_source', payload.source || 'WEB');
       fd.append('client_request_id', payload.clientRequestId || clientRequestId());
+      if (payload.photoBase64) fd.append('checkout_photo', dataUrlToBlob(payload.photoBase64), 'checkout.jpg');
       const rec = await create('attendance', fd);
       return { ok: true, id: rec.id };
+    }
+
+    /* ---- attendance checkout proof ---- */
+    case 'completeCheckoutPhoto': {
+      if (!payload.attendanceId || !payload.photoBase64) fail({ message: 'attendanceId and photo are required.' });
+      const fd = new FormData();
+      fd.append('checkout_photo', dataUrlToBlob(payload.photoBase64), 'checkout.jpg');
+      fd.append('photo_pending', 'false');
+      fd.append('photo_completed_at', new Date().toISOString());
+      return { ok: true, record: await patch('attendance', payload.attendanceId, fd) };
+    }
+
+    /* ---- dashboard / 360 ---- */
+    case 'homeSummary': {
+      const { data, ok } = await pbFetch('/api/fieldops/home-summary', {
+        method: 'POST', body: { sessionToken: currentToken() }
+      });
+      if (!ok || !data || !data.success) fail(data || {}, 'Home summary failed.');
+      return data;
+    }
+    case 'person360': {
+      const { data, ok } = await pbFetch('/api/fieldops/person-360', {
+        method: 'POST', body: { sessionToken: currentToken(), userId: payload.userId }
+      });
+      if (!ok || !data || !data.success) fail(data || {}, 'Person 360 failed.');
+      return data;
+    }
+
+    /* ---- dealer visits ---- */
+    case 'dealerVisitsList': {
+      const { data, ok } = await pbFetch('/api/fieldops/dealer-visits/list', {
+        method: 'POST',
+        body: { sessionToken: currentToken(), dealerId: payload.dealerId, from: payload.from, to: payload.to }
+      });
+      if (!ok || !data || !data.success) fail(data || {}, 'Dealer visits list failed.');
+      return data;
+    }
+    case 'issueDealerCode': {
+      const { data, ok } = await pbFetch('/api/fieldops/dealer-visits/issue-code', {
+        method: 'POST', body: { sessionToken: currentToken(), dealerId: payload.dealerId }
+      });
+      if (!ok || !data || !data.success) fail(data || {}, 'Could not issue dealer code.');
+      return data;
+    }
+    case 'dealerVerify': {
+      const { data, ok } = await pbFetch('/api/fieldops/dealer-verify', {
+        method: 'POST', body: { dealerId: payload.dealerId, token: payload.token }
+      });
+      if (!ok || !data || !data.success) fail(data || {}, 'Dealer verification failed.');
+      return data;
+    }
+    case 'dealersList': {
+      const res = await list('dealers', { filter: payload.query ? `name ~ "${esc(payload.query)}"` : '', sort: 'name' });
+      return { ok: true, dealers: res.items || [] };
+    }
+    case 'dealerLocationsList': {
+      const res = await list('dealer_locations', { filter: payload.dealerId ? `dealer_id = "${esc(payload.dealerId)}"` : '' });
+      return { ok: true, locations: res.items || [] };
+    }
+    case 'dealerVisitCreate': {
+      const saved = JSON.parse(localStorage.getItem('fieldops_session') || 'null') || {};
+      const fields = {
+        manager_id: saved.userId || payload.managerId || '',
+        dealer_id: payload.dealerId,
+        dealer_location_id: payload.dealerLocationId || '',
+        visit_type: payload.visitType || 'ROUTINE',
+        verification_mode: payload.verificationMode || 'MANUAL',
+        code: payload.code || '',
+        visit_code_id: payload.visitCodeId || '',
+        qr_token: payload.qrToken || '',
+        latitude: String(Number(payload.lat) || 0),
+        longitude: String(Number(payload.lng) || 0),
+        notes: payload.notes || ''
+      };
+      let rec;
+      if (payload.photoBase64) {
+        const fd = new FormData();
+        Object.entries(fields).forEach(([k, v]) => fd.append(k, v));
+        fd.append('check_in_photo', dataUrlToBlob(payload.photoBase64), 'visit.jpg');
+        rec = await create('dealer_visits', fd);
+      } else {
+        rec = await create('dealer_visits', fields);
+      }
+      return { ok: true, visit: rec };
+    }
+    case 'dealerVisitComplete': {
+      const body = { status: 'COMPLETED', outcome: payload.outcome || '', notes: payload.notes || '' };
+      const fd = new FormData();
+      Object.entries(body).forEach(([k, v]) => fd.append(k, v));
+      if (payload.photoBase64) fd.append('check_out_photo', dataUrlToBlob(payload.photoBase64), 'visit-out.jpg');
+      return { ok: true, visit: await patch('dealer_visits', payload.id, fd) };
+    }
+
+    /* ---- parts review queue ---- */
+    case 'partsReviewQueue': {
+      const res = await list('job_card_parts', {
+        filter: 'needs_review = true',
+        expand: 'job_card_id',
+        sort: '-created',
+        perPage: 200
+      });
+      return {
+        ok: true,
+        rows: (res.items || []).map((p) => ({
+          id: p.id,
+          jobCardId: p.job_card_id,
+          jobCode: (p.expand && p.expand.job_card_id && p.expand.job_card_id.job_code) || p.job_card_id,
+          partCode: p.part_code, qty: Number(p.qty) || 1,
+          status: p.status, source: p.source,
+          confidence: Number(p.confidence) || 0, resolved: p.resolved === true
+        }))
+      };
+    }
+    case 'confirmPartLine': {
+      return {
+        ok: true,
+        record: await patch('job_card_parts', payload.id, {
+          part_code: payload.partCode,
+          qty: Math.max(1, Number(payload.qty) || 1),
+          resolved: true,
+          needs_review: false,
+          confidence: 1
+        })
+      };
     }
 
     /* ---- fleet ---- */

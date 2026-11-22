@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { call } from '../api.js';
 import {
   Btn, Card, Empty, Field, Modal, PageHeader, Spinner, Table, useAsync, useToast,
@@ -19,19 +19,27 @@ const JOB_FIELDS_SCHEMA = [
   { key: "resolutionNotes", label: "Resolution notes", type: "text" }
 ];
 
-function elapsed(task) {
+function elapsed(task, now) {
   if (!task) return '—';
+  const clock = now || Date.now();
   const parse = (v) => new Date(v).getTime();
   if (task.turnaroundMinutes && task.endTime) {
     const m = Number(task.turnaroundMinutes);
     return `${Math.floor(m / 60)}h ${m % 60}m`;
   }
   if (task.startTime) {
-    const m = Math.round((Date.now() - parse(task.startTime)) / 60000);
+    const m = Math.round((clock - parse(task.startTime)) / 60000);
     if (!isFinite(m) || m < 0) return '—';
     return `${Math.floor(m / 60)}h ${m % 60}m`;
   }
   return '—';
+}
+
+function holdElapsed(task, now) {
+  if (!task || task.status !== 'OnHold' || !task.holdStartedAt) return '—';
+  const m = Math.round(((now || Date.now()) - new Date(task.holdStartedAt).getTime()) / 60000);
+  if (!isFinite(m) || m < 0) return '—';
+  return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
 function statusTone(status) {
@@ -48,6 +56,12 @@ export default function Jobs({ session, checkedIn }) {
   const [query, setQuery] = useState({ status: '', search: '' });
   const [editing, setEditing] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
 
   const { data, loading, error, reload } = useAsync(
     () => call('getTasks', { status: query.status, query: query.search, page: 1, pageSize: 200 }),
@@ -93,7 +107,24 @@ export default function Jobs({ session, checkedIn }) {
         </span>
       )
     },
-    { key: 'elapsed', label: 'Elapsed', render: (r) => elapsed(r) },
+    { key: 'elapsed', label: 'Elapsed', render: (r) => elapsed(r, now) },
+    {
+      key: 'holdElapsed', label: 'On hold',
+      render: (r) => {
+        const h = holdElapsed(r, now);
+        if (h === '—') return <span className="muted">—</span>;
+        const over = r.holdToStopMinutes && Math.round((now - new Date(r.holdStartedAt).getTime()) / 60000) > r.holdToStopMinutes;
+        return <span className={`badge ${over ? 'bad' : 'warn'}`}>{h}{over ? ' · over TAT' : ''}</span>;
+      }
+    },
+    {
+      key: 'parts', label: 'Parts',
+      render: (r) => {
+        const s = r.partsExtractStatus || 'NONE';
+        const tone = s === 'PENDING' ? 'warn' : s === 'DONE' ? 'ok' : 'neutral';
+        return <span className={`badge ${tone}`}>{s}</span>;
+      }
+    },
     { key: 'plateSource', label: 'Plate src', render: (r) => r.plateSource || '—' },
     { key: 'updatedBy', label: 'Last edit', render: (r) => r.updatedByName || r.updatedBy || '—' },
     {
@@ -107,7 +138,7 @@ export default function Jobs({ session, checkedIn }) {
       )
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [checkedIn]);
+  ], [checkedIn, now]);
 
   return (
     <>
