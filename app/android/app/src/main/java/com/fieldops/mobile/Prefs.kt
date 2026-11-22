@@ -4,11 +4,11 @@ import android.content.Context
 import android.content.SharedPreferences
 import java.util.UUID
 
-/** Session + config store. Base URL defaults to the PocketBase Cloud instance. */
+/** Session + config store. Base URL defaults to the Render-hosted PocketBase instance. */
 object Prefs {
     private lateinit var sp: SharedPreferences
 
-    const val DEFAULT_BASE_URL = "https://wzc6r4fspi7fdd2.pwz5.pocketbasecloud.com"
+    const val DEFAULT_BASE_URL = "https://fieldops-pb.onrender.com"
     const val DEFAULT_BUFFER_METERS = 100
 
     fun init(ctx: Context) {
@@ -61,6 +61,16 @@ object Prefs {
         get() = java.lang.Double.longBitsToDouble(sp.getLong("hubRadius", 0L))
         set(v) = sp.edit().putLong("hubRadius", java.lang.Double.doubleToRawLongBits(v)).apply()
 
+    /** INHERIT_HUB | CUSTOM | ROAMING as resolved by the server. */
+    var geofenceMode: String
+        get() = sp.getString("geofenceMode", "INHERIT_HUB") ?: "INHERIT_HUB"
+        set(v) = put("geofenceMode", v)
+
+    /** True when the manager granted roaming: no radius limit. */
+    var geofenceUnlimited: Boolean
+        get() = sp.getBoolean("geofenceUnlimited", false)
+        set(v) = sp.edit().putBoolean("geofenceUnlimited", v).apply()
+
     /** Breach fires only beyond radius + buffer (default 100m hysteresis band). */
     var bufferMeters: Int
         get() = sp.getInt("bufferMeters", DEFAULT_BUFFER_METERS)
@@ -76,6 +86,47 @@ object Prefs {
     var checkInDate: String
         get() = sp.getString("checkInDate", "") ?: ""
         set(v) = put("checkInDate", v)
+
+    /** Epoch millis of the last photo-verified check-in (job gate). */
+    var checkInProofAt: Long
+        get() = sp.getLong("checkInProofAt", 0L)
+        set(v) = sp.edit().putLong("checkInProofAt", v).apply()
+
+    /** Job gate: a photo check-in today is required to start/stop a job. */
+    val hasPhotoCheckInToday: Boolean
+        get() = checkedInToday && checkInProofAt > 0L
+
+    /* -------------------------------------------- breach / auto checkout */
+
+    /** Epoch millis when the current geofence breach started (0 = none). */
+    var breachAt: Long
+        get() = sp.getLong("breachAt", 0L)
+        set(v) = sp.edit().putLong("breachAt", v).apply()
+
+    /** Epoch millis when the breach grace expires and auto-checkout fires. */
+    var breachDeadlineAt: Long
+        get() = sp.getLong("breachDeadlineAt", 0L)
+        set(v) = sp.edit().putLong("breachDeadlineAt", v).apply()
+
+    /** Per-user grace override (minutes); 0 = server default (15). */
+    var graceMinutes: Int
+        get() = sp.getInt("graceMinutes", 0)
+        set(v) = sp.edit().putInt("graceMinutes", v).apply()
+
+    /** Attendance row awaiting a checkout photo (auto check-out). */
+    var pendingCheckoutId: String
+        get() = sp.getString("pendingCheckoutId", "") ?: ""
+        set(v) = put("pendingCheckoutId", v)
+
+    /** Last reverse-geocoded / nearest address burned onto proofs. */
+    var lastAddress: String
+        get() = sp.getString("lastAddress", "") ?: ""
+        set(v) = put("lastAddress", v)
+
+    /** Active dealer visit id (manager flow). */
+    var dealerVisitId: String
+        get() = sp.getString("dealerVisitId", "") ?: ""
+        set(v) = put("dealerVisitId", v)
 
     val checkedInToday: Boolean get() = checkInDate == Api.istToday()
 
@@ -121,6 +172,11 @@ object Prefs {
 
     fun resetDayFlow() {
         checkInDate = ""
+        checkInProofAt = 0L
+        breachAt = 0L
+        breachDeadlineAt = 0L
+        pendingCheckoutId = ""
+        dealerVisitId = ""
         jobStartedAt = 0L
         jobPlate = ""
         jobId = ""
