@@ -125,15 +125,19 @@ full `pb_data` snapshot in Google Drive:
   unpacks it into `pb_data` before PocketBase serves, then applies migrations
   and ensures the superuser exists.
 
-Setup (one time, no card):
+Setup (one time, no card, reuse the existing clasp deployment):
 
 1. Create a Google Drive folder; copy its id from the URL
    (`https://drive.google.com/drive/folders/<FOLDER_ID>`).
-2. At https://script.google.com create a project, paste
-   `backend/deploy/BackupWebApp.gs`, set `FOLDER_ID` and a long `SHARED_TOKEN`.
-3. Deploy > New deployment > Web App. Execute as **Me**, access **Anyone**.
+2. Open the existing clasp project for the FieldOps Drive backup Web App
+   (`scriptId 17Gilh4r6VXMNQpuffEC1Yc3_x-LNGkjGFsyL3FMBMm2QzQtWw3ZiKHWe`) and
+   paste `backend/deploy/BackupWebApp.gs` to Code.gs; set `FOLDER_ID` and a long
+   `SHARED_TOKEN`.
+3. Deploy the existing Web App (Deploy > Manage deployments > Deploy latest
+   code, or `clasp deploy`). Execute as **Me**, access **Anyone**.
 4. In Render, set these environment variables:
    - `BACKUP_WEBAPP_URL` = the Web App URL
+     (https://script.google.com/macros/s/17Gilh4r6VXMNQpuffEC1Yc3_x-LNGkjGFsyL3FMBMm2QzQtWw3ZiKHWe/exec)
    - `BACKUP_WEBAPP_TOKEN` = the shared token
    - `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD` = superuser for the Backups API
    - `BACKUP_CRON` = `*/5 * * * *` (optional)
@@ -146,6 +150,7 @@ Notes:
 - Backups run only while the service is awake; the latest snapshot is at most
   `BACKUP_CRON` old.
 - Without these env vars the app still works, but data resets on spin-down.
+- The demo runs fully on Render; the PocketBase Cloud instance is not used.
 
 ## Alternative: always-on (no cold starts)
 

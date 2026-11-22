@@ -7,7 +7,8 @@
 # PocketBase starts, so captured demo data survives.
 #
 # Env:
-#   BACKUP_WEBAPP_URL    Google Apps Script Web App URL (empty = skip restore)
+#   BACKUP_WEBAPP_URL    Google Apps Script Web App URL (defaults to the
+#                        existing clasp Web App deployment)
 #   BACKUP_WEBAPP_TOKEN  shared secret for the Web App (optional)
 #   PB_ADMIN_EMAIL       superuser email (created/updated below)
 #   PB_ADMIN_PASSWORD    superuser password
@@ -23,6 +24,9 @@ fi
 mkdir -p "$DB"
 
 # 1. Restore the latest backup from Google Drive (if any).
+# Default to the existing clasp Web App deployment used by the Drive backup.
+: "${BACKUP_WEBAPP_URL:=https://script.google.com/macros/s/17Gilh4r6VXMNQpuffEC1Yc3_x-LNGkjGFsyL3FMBMm2QzQtWw3ZiKHWe/exec}"
+
 if [ -n "$BACKUP_WEBAPP_URL" ]; then
   B64="$(wget -qO- -T 30 "$BACKUP_WEBAPP_URL?action=latest&token=$BACKUP_WEBAPP_TOKEN&ts=$(date +%s)" 2>/dev/null | tr -d '[:space:]' || true)"
   if [ -n "$B64" ] && [ "$B64" != "NONE" ]; then

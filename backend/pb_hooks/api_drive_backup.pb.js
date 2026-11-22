@@ -14,7 +14,9 @@
  * before PocketBase serves.
  *
  * Required env:
- *   BACKUP_WEBAPP_URL   Google Apps Script Web App URL
+ *   BACKUP_WEBAPP_URL   Google Apps Script Web App URL (defaults to the
+ *                       existing clasp deployment Web App:
+ *                       https://script.google.com/macros/s/17Gilh4r6VXMNQpuffEC1Yc3_x-LNGkjGFsyL3FMBMm2QzQtWw3ZiKHWe/exec)
  *   BACKUP_WEBAPP_TOKEN shared secret (optional but recommended)
  *   PB_ADMIN_EMAIL      superuser email (used only for the Backups API)
  *   PB_ADMIN_PASSWORD   superuser password
@@ -26,13 +28,14 @@
  * so the handler below is intentionally self-contained (no outer functions).
  */
 
-var DRIVE_URL = String($os.getenv("BACKUP_WEBAPP_URL") || "").trim();
+var SCRIPT_ID = "17Gilh4r6VXMNQpuffEC1Yc3_x-LNGkjGFsyL3FMBMm2QzQtWw3ZiKHWe";
+var DRIVE_URL = String($os.getenv("BACKUP_WEBAPP_URL") || "").trim() || "https://script.google.com/macros/s/" + SCRIPT_ID + "/exec";
 var PB_ADMIN_EMAIL = String($os.getenv("PB_ADMIN_EMAIL") || "").trim();
 var PB_ADMIN_PASSWORD = String($os.getenv("PB_ADMIN_PASSWORD") || "").trim();
 
 if (DRIVE_URL && PB_ADMIN_EMAIL && PB_ADMIN_PASSWORD) {
   cronAdd("fieldops-drive-backup", String($os.getenv("BACKUP_CRON") || "*/5 * * * *"), function () {
-    var DRIVE_URL = String($os.getenv("BACKUP_WEBAPP_URL") || "").trim();
+    var DRIVE_URL = String($os.getenv("BACKUP_WEBAPP_URL") || "").trim() || "https://script.google.com/macros/s/17Gilh4r6VXMNQpuffEC1Yc3_x-LNGkjGFsyL3FMBMm2QzQtWw3ZiKHWe/exec";
     var DRIVE_TOKEN = String($os.getenv("BACKUP_WEBAPP_TOKEN") || "").trim();
     var PB_ADMIN_EMAIL = String($os.getenv("PB_ADMIN_EMAIL") || "").trim();
     var PB_ADMIN_PASSWORD = String($os.getenv("PB_ADMIN_PASSWORD") || "").trim();

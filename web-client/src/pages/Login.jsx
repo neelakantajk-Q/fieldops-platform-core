@@ -204,7 +204,7 @@ export default function Login({ onLogin }) {
               </button>
               {showEndpoint ? (
                 <div className="api-panel">
-                  <Field label="PocketBase URL" hint="e.g. https://your-instance.pocketbasecloud.com — no trailing slash.">
+                  <Field label="PocketBase URL" hint="e.g. https://fieldops-pb.onrender.com — no trailing slash.">
                     <input value={endpoint} onChange={(e) => setEndpoint(e.target.value)} spellCheck={false} className="mono" />
                   </Field>
                   <div className="conn-row">

@@ -5,12 +5,18 @@
  * Google Drive folder. The Render container uploads via doPost and downloads
  * via doGet on cold start (see backend/entrypoint.sh).
  *
- * Setup (no credit card, no Google Cloud project):
+ * Uses the existing clasp deployment for this Web App:
+ *   scriptId 17Gilh4r6VXMNQpuffEC1Yc3_x-LNGkjGFsyL3FMBMm2QzQtWw3ZiKHWe
+ *   Web App  https://script.google.com/macros/s/17Gilh4r6VXMNQpuffEC1Yc3_x-LNGkjGFsyL3FMBMm2QzQtWw3ZiKHWe/exec
+ *
+ * Setup (no credit card, no Google Cloud project, reuse the existing deployment):
  *   1. Create a Google Drive folder, open it and copy the id from the URL
  *      (https://drive.google.com/drive/folders/<FOLDER_ID>).
- *   2. Go to https://script.google.com, create a project, paste this file.
+ *   2. Open the existing clasp project for the script above and paste this file
+ *      to Code.gs.
  *   3. Set FOLDER_ID below (and optionally SHARED_TOKEN).
- *   4. Deploy > New deployment > Web App.
+ *   4. Deploy the existing Web App (Deploy > Manage deployments > Deploy latest
+ *      code, or `clasp deploy`) so it runs this code.
  *      - Execute as: Me
  *      - Who has access: Anyone
  *   5. Copy the Web App URL into the Render env var BACKUP_WEBAPP_URL and the
@@ -20,6 +26,7 @@
  * SHARED_TOKEN and send it as ?token=... so the URL alone is not enough.
  */
 
+var SCRIPT_ID = "17Gilh4r6VXMNQpuffEC1Yc3_x-LNGkjGFsyL3FMBMm2QzQtWw3ZiKHWe";
 var FOLDER_ID = "REPLACE_WITH_YOUR_DRIVE_FOLDER_ID";
 var SHARED_TOKEN = "REPLACE_WITH_A_LONG_RANDOM_SECRET";
 var BACKUP_NAME = "fieldops_latest.zip";
