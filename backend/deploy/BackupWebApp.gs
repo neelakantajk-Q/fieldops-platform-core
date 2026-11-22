@@ -6,8 +6,11 @@
  * via doGet on cold start (see backend/entrypoint.sh).
  *
  * Uses the existing clasp deployment for this Web App:
- *   scriptId 17Gilh4r6VXMNQpuffEC1Yc3_x-LNGkjGFsyL3FMBMm2QzQtWw3ZiKHWe
- *   Web App  https://script.google.com/macros/s/17Gilh4r6VXMNQpuffEC1Yc3_x-LNGkjGFsyL3FMBMm2QzQtWw3ZiKHWe/exec
+ *   scriptId 1qVu0MpKll0nYef7nPes7oqJlJ3xeuuJUOtakSCGSP4lPp71UW05At_wR
+ *   Web App  https://script.google.com/macros/s/AKfycbw8lUdJIdrlqEPAuoyZ4p2-p5UyB2YNnWXLp7KEMyNd9uTp8nJZPPl8DXbahRzshU3IHw/exec
+ *   manifest oauthScopes: https://www.googleapis.com/auth/drive (full drive)
+ *     (required: DriveApp.getFoldersByName); folder auto-created (FieldOpsBackups)
+ *     in the caller's Drive.
  *
  * Setup (no credit card, no Google Cloud project, reuse the existing deployment):
  *   1. Create a Google Drive folder, open it and copy the id from the URL
@@ -26,37 +29,40 @@
  * SHARED_TOKEN and send it as ?token=... so the URL alone is not enough.
  */
 
-var SCRIPT_ID = "17Gilh4r6VXMNQpuffEC1Yc3_x-LNGkjGFsyL3FMBMm2QzQtWw3ZiKHWe";
-var FOLDER_ID = "REPLACE_WITH_YOUR_DRIVE_FOLDER_ID";
+var FOLDER_NAME = "FieldOpsBackups";
 var SHARED_TOKEN = "REPLACE_WITH_A_LONG_RANDOM_SECRET";
 var BACKUP_NAME = "fieldops_latest.zip";
 
-function doPost(e) {
-  if (!isAuthorized_(e)) {
-    return json_({ ok: false, error: "unauthorized" });
-  }
+function getFolder_() {
+  var it = DriveApp.getFoldersByName(FOLDER_NAME);
+  if (it.hasNext()) { return it.next(); }
+  return DriveApp.createFolder(FOLDER_NAME);
+}
 
+function save_(blob) {
+  var folder = getFolder_();
+  var files = folder.getFilesByName(BACKUP_NAME);
+  while (files.hasNext()) { files.next().setTrashed(true); }
+  folder.createFile(blob);
+}
+
+function doPost(e) {
   var body;
   try {
     body = JSON.parse(e.postData.contents);
   } catch (err) {
     return json_({ ok: false, error: "invalid json" });
   }
-
+  if (!isAuthorized_(e, body)) {
+    return json_({ ok: false, error: "unauthorized" });
+  }
   var dataBase64 = body.dataBase64 || "";
   if (!dataBase64) {
     return json_({ ok: false, error: "empty payload" });
   }
-
   try {
     var blob = Utilities.newBlob(Utilities.base64Decode(dataBase64), "application/zip", BACKUP_NAME);
-    var folder = DriveApp.getFolderById(FOLDER_ID);
-    var files = folder.getFilesByName(BACKUP_NAME);
-    if (files.hasNext()) {
-      files.next().setContent(blob);
-    } else {
-      folder.createFile(blob);
-    }
+    save_(blob);
     return json_({ ok: true, name: BACKUP_NAME, size: dataBase64.length });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
@@ -67,9 +73,8 @@ function doGet(e) {
   if (!isAuthorized_(e)) {
     return ContentService.createTextOutput("NONE");
   }
-
   try {
-    var folder = DriveApp.getFolderById(FOLDER_ID);
+    var folder = getFolder_();
     var files = folder.getFilesByName(BACKUP_NAME);
     if (!files.hasNext()) {
       return ContentService.createTextOutput("NONE");
@@ -81,11 +86,12 @@ function doGet(e) {
   }
 }
 
-function isAuthorized_(e) {
+function isAuthorized_(e, body) {
   if (!SHARED_TOKEN) {
     return true;
   }
-  var token = (e.parameter && e.parameter.token) || "";
+  var token = (e && e.parameter && e.parameter.token) || "";
+  if (!token && body && body.token) { token = body.token; }
   return token === SHARED_TOKEN;
 }
 

@@ -112,6 +112,10 @@ Free services sleep after 15 idle minutes. Add a free pinger
 
 ## 7. Durability: automatic Google Drive backup/restore (no card)
 
+> Note: the hosting mode above uses **DIRECT** deployment. Render's free
+> services do not survive 15+ minutes of inactivity, and any rollback restarts
+> them; either way the demo data is rebuilt from the seed. Durability adds a
+> Google Drive backup that you can pull back manually.
 Render's free disk is ephemeral, so a spin-down wipes `pb_data`. To make
 captured demo data survive, the repo includes an automatic backup that stores a
 full `pb_data` snapshot in Google Drive:
@@ -120,35 +124,43 @@ full `pb_data` snapshot in Google Drive:
   while the service is awake) creates a full backup via the superuser Backups
   API, reads the zip and uploads it to a Google Apps Script Web App.
 - `backend/deploy/BackupWebApp.gs` - the Web App. It stores the latest snapshot
-  as `fieldops_latest.zip` in a Drive folder and serves it on request.
+  as `fieldops_latest.zip` in the `FieldOpsBackups` Drive folder and serves it
+  on request. It uses `DriveApp.getFoldersByName`, so the script needs the
+  `https://www.googleapis.com/auth/drive` scope granted once by the deploying
+  account in the editor (Run `selfTest` + Allow).
 - `backend/entrypoint.sh` - on every cold start, downloads that snapshot and
   unpacks it into `pb_data` before PocketBase serves, then applies migrations
   and ensures the superuser exists.
 
-Setup (one time, no card, reuse the existing clasp deployment):
+Setup (already done on the Render instance; recreate the sink if it is lost):
 
-1. Create a Google Drive folder; copy its id from the URL
-   (`https://drive.google.com/drive/folders/<FOLDER_ID>`).
-2. Open the existing clasp project for the FieldOps Drive backup Web App
-   (`scriptId 17Gilh4r6VXMNQpuffEC1Yc3_x-LNGkjGFsyL3FMBMm2QzQtWw3ZiKHWe`) and
-   paste `backend/deploy/BackupWebApp.gs` to Code.gs; set `FOLDER_ID` and a long
-   `SHARED_TOKEN`.
-3. Deploy the existing Web App (Deploy > Manage deployments > Deploy latest
-   code, or `clasp deploy`). Execute as **Me**, access **Anyone**.
-4. In Render, set these environment variables:
-   - `BACKUP_WEBAPP_URL` = the Web App URL
-     (https://script.google.com/macros/s/17Gilh4r6VXMNQpuffEC1Yc3_x-LNGkjGFsyL3FMBMm2QzQtWw3ZiKHWe/exec)
-   - `BACKUP_WEBAPP_TOKEN` = the shared token
-   - `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD` = superuser for the Backups API
-   - `BACKUP_CRON` = `*/5 * * * *` (optional)
-5. Redeploy. The first backup runs within 5 minutes; after that, cold starts
-   restore the latest snapshot automatically.
+- The Google Apps Script sink is an **Apps Script Web App** that creates/uses a
+  Drive folder named `FieldOpsBackups` in the deployer's Drive (uses
+  `https://www.googleapis.com/auth/drive`; the script must have been granted
+  full Drive access once - see step 1 of the hosting notes).
+- `BACKUP_WEBAPP_URL` is the Web App URL:
+  `https://script.google.com/macros/s/AKfycbw8lUdJIdrlqEPAuoyZ4p2-p5UyB2YNnWXLp7KEMyNd9uTp8nJZpPl8DXbahRzshU3IHw/exec`
+- `BACKUP_WEBAPP_TOKEN` is the shared secret sent in the request.
+- `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD` are the superuser used for the
+  Backups API (set on Render).
+- `BACKUP_CRON` defaults to `*/5 * * * *`.
+
+If you need to recreate the Web App:
+1. Open the Apps Script editor at
+   `https://script.google.com/d/1qVu0MpKll0nYef7nPes7oqJlJ3xeuuJUOtakSCGSP4lPp71UW05At_wR/edit`,
+   paste `backend/deploy/BackupWebApp.gs` to Code.gs.
+2. Set a long `SHARED_TOKEN`.
+3. Deploy as Web App: **Deploy > Publish** (or Manage deployments), access
+   **Anyone**, run **selfTest**, and click through the one-time Drive
+   authorization prompt (full Drive scope).
+4. Copy the `.../macros/s/{DEPLOYMENT_ID}/exec` URL into the Render env var.
 
 Notes:
 
 - The snapshot includes the SQLite DB **and** uploaded files, so photos survive.
-- Backups run only while the service is awake; the latest snapshot is at most
-  `BACKUP_CRON` old.
+- Backups run only while the service is awake; the latest snapshot is roughly
+  `BACKUP_CRON` old (5 min). If the gap grows noticeably, check the Render
+  logs (`drive backup ...`) for the latest `drive backup:` line.
 - Without these env vars the app still works, but data resets on spin-down.
 - The demo runs fully on Render; the PocketBase Cloud instance is not used.
 

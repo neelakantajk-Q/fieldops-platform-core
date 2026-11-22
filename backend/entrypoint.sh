@@ -25,7 +25,7 @@ mkdir -p "$DB"
 
 # 1. Restore the latest backup from Google Drive (if any).
 # Default to the existing clasp Web App deployment used by the Drive backup.
-: "${BACKUP_WEBAPP_URL:=https://script.google.com/macros/s/17Gilh4r6VXMNQpuffEC1Yc3_x-LNGkjGFsyL3FMBMm2QzQtWw3ZiKHWe/exec}"
+: "${BACKUP_WEBAPP_URL:=https://script.google.com/macros/s/AKfycbw8lUdJIdrlqEPAuoyZ4p2-p5UyB2YNnWXLp7KEMyNd9uTp8nJZpPl8DXbahRzshU3IHw/exec}"
 
 if [ -n "$BACKUP_WEBAPP_URL" ]; then
   B64="$(wget -qO- -T 30 "$BACKUP_WEBAPP_URL?action=latest&token=$BACKUP_WEBAPP_TOKEN&ts=$(date +%s)" 2>/dev/null | tr -d '[:space:]' || true)"
