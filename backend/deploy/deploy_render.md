@@ -37,9 +37,9 @@ into the image.
 From `fieldops-platform-core`:
 
 ```powershell
-git add render.yaml .dockerignore backend/Dockerfile.render `
-  backend/pb_migrations/1700000060_demo_login_users.js `
-  web-client/src/config.js
+git add render.yaml .dockerignore backend/Dockerfile backend/Dockerfile.render `
+  backend/pb_hooks backend/pb_migrations `
+  web-client/src/config.js web-client/src/lib/pb.js
 git commit -m "deploy: one-URL free Render demo (PB + web client)"
 git push
 ```
@@ -66,10 +66,19 @@ Invoke-RestMethod -Method Post -Uri "$url/api/admins" -ContentType "application/
 If it says the admin already exists, skip - use that login or reset it at
 `$url/_/`.
 
-## 4. Demo logins (seeded automatically - no Node needed)
+## 4. Demo data and logins (seeded automatically - no Node needed)
 
-Migration `1700000060_demo_login_users.js` creates the legacy login users on
-boot, using the SHA-256 hashes the client sends. No seeding step is required.
+Migrations run on every boot:
+
+- `1700000060_demo_login_users.js` creates the legacy login users with the
+  SHA-256 hashes the client sends.
+- `1700000110_seed_demo_data.js` upserts a clean QEL demo dataset: 6 clients,
+  10 vehicles, 18 complaints, 15 job cards (6 closed, 4 in progress, 3 on hold,
+  2 open), attendance, holds, parts/stock, invoices, dealers/visits, CAPA,
+  notifications, audit logs and settings. The seed is idempotent, so restarts
+  and redeploys do not duplicate rows.
+
+No seeding step is required.
 
 | Username | Password   | Role          |
 |----------|------------|---------------|
