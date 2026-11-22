@@ -1370,6 +1370,15 @@ migrate((db) => {
       ist_date: "2026-11-22"
     });
   });
+  // Reserve complaint numbers past the seeded CMP-26-RG2-BENG-0001..0018 rows
+  // so the complaints model hook (cmp:YEAR:REGION:HUB key) cannot collide with
+  // the unique complaint_no index on the first app-created complaint.
+  seed("sequence_counters", "key = {:k}", { k: "cmp:2026:RG2:BENG" }, {
+    key: "cmp:2026:RG2:BENG",
+    value: 100,
+    scope: "complaints:RG2:BENG",
+    ist_date: "2026-11-22"
+  });
 
 }, (db) => {
   // Demo seed data: no downgrade.
