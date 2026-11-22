@@ -19,6 +19,11 @@ into the image.
 - `backend/Dockerfile.render` - stage 1 builds the web client
   (`VITE_SAME_ORIGIN_API=true`), stage 2 runs PocketBase 0.22.32 and copies the
   build into `/pb/pb_public`.
+- `backend/entrypoint.sh` - restores the latest Google Drive backup on cold
+  start, applies migrations, ensures the superuser, then serves.
+- `backend/pb_hooks/api_drive_backup.pb.js` - cron job that uploads a full
+  `pb_data` snapshot to Google Drive while the service is awake.
+- `backend/deploy/BackupWebApp.gs` - the Google Apps Script sink (Drive).
 - `.dockerignore` (repo root) - keeps the build context small (excludes APKs,
   node_modules, pb_data, etc.).
 - `web-client/src/config.js` - when built with `VITE_SAME_ORIGIN_API=true`, the
@@ -29,8 +34,9 @@ into the image.
 
 - Free service **sleeps after 15 minutes without traffic**; the next request
   takes ~1 minute to wake it. Keep it warm during the demo (see below).
-- Disk is **ephemeral**: data resets on redeploy/restart. Migrations re-create
-  the schema and seed on every boot, so the demo always starts clean.
+- Disk is **ephemeral**: data resets on redeploy/restart/spin-down. Migrations
+  re-create the schema and seed on every boot, so the demo always starts clean.
+  Enable the Google Drive backup/restore (section 7) to keep captured data.
 
 ## 1. Commit and push
 
@@ -104,6 +110,43 @@ Free services sleep after 15 idle minutes. Add a free pinger
 (https://cron-job.org or UptimeRobot) hitting
 `https://fieldops-pb.onrender.com/api/health` every 5-10 minutes on demo day.
 
+## 7. Durability: automatic Google Drive backup/restore (no card)
+
+Render's free disk is ephemeral, so a spin-down wipes `pb_data`. To make
+captured demo data survive, the repo includes an automatic backup that stores a
+full `pb_data` snapshot in Google Drive:
+
+- `backend/pb_hooks/api_drive_backup.pb.js` - a PocketBase cron job (every 5 min
+  while the service is awake) creates a full backup via the superuser Backups
+  API, reads the zip and uploads it to a Google Apps Script Web App.
+- `backend/deploy/BackupWebApp.gs` - the Web App. It stores the latest snapshot
+  as `fieldops_latest.zip` in a Drive folder and serves it on request.
+- `backend/entrypoint.sh` - on every cold start, downloads that snapshot and
+  unpacks it into `pb_data` before PocketBase serves, then applies migrations
+  and ensures the superuser exists.
+
+Setup (one time, no card):
+
+1. Create a Google Drive folder; copy its id from the URL
+   (`https://drive.google.com/drive/folders/<FOLDER_ID>`).
+2. At https://script.google.com create a project, paste
+   `backend/deploy/BackupWebApp.gs`, set `FOLDER_ID` and a long `SHARED_TOKEN`.
+3. Deploy > New deployment > Web App. Execute as **Me**, access **Anyone**.
+4. In Render, set these environment variables:
+   - `BACKUP_WEBAPP_URL` = the Web App URL
+   - `BACKUP_WEBAPP_TOKEN` = the shared token
+   - `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD` = superuser for the Backups API
+   - `BACKUP_CRON` = `*/5 * * * *` (optional)
+5. Redeploy. The first backup runs within 5 minutes; after that, cold starts
+   restore the latest snapshot automatically.
+
+Notes:
+
+- The snapshot includes the SQLite DB **and** uploaded files, so photos survive.
+- Backups run only while the service is awake; the latest snapshot is at most
+  `BACKUP_CRON` old.
+- Without these env vars the app still works, but data resets on spin-down.
+
 ## Alternative: always-on (no cold starts)
 
 Deploy the same `backend/Dockerfile.render` on **Northflank Sandbox** (free,
@@ -122,4 +165,5 @@ Then repeat step 3 with the Northflank URL (demo logins seed automatically).
 - **Health check fails**: PocketBase returns 200 at `/api/health`; give the
   first boot time for migrations.
 - **First request slow**: free instance woke from sleep; normal.
-- **Data vanished after a redeploy**: expected on the free ephemeral disk.
+- **Data vanished after a redeploy/spin-down**: expected on the free ephemeral
+  disk unless the Google Drive backup is configured (section 7).
