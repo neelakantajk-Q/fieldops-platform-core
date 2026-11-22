@@ -1,0 +1,23 @@
+# Render Blueprint - free one-URL PocketBase demo (no card required)
+#
+# In Render: New -> Blueprint -> connect this repo -> it reads this file.
+#
+# This builds backend/Dockerfile.render from the repo root. That image builds
+# the React web client and serves it from PocketBase at the same URL:
+#   /        -> web app
+#   /api/    -> PocketBase REST API
+#   /_/      -> admin panel
+# So there is ONE public URL, no CORS, and no second service.
+#
+# Free services have an EPHEMERAL disk - data resets on redeploy/restart.
+# Fine for a demo: pb_migrations re-create the schema + seed on boot.
+
+services:
+  - type: web
+    name: fieldops-pb
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile.render
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true

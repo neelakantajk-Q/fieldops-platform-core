@@ -1,0 +1,41 @@
+# Render free demo - one URL for UI + API.
+#
+# Multi-stage build:
+#   1. build the React web client (Vite) with same-origin API enabled
+#   2. bake the built files into PocketBase's pb_public, so PocketBase serves
+#      the UI at "/", the REST API at "/api/" and the admin panel at "/_/"
+#
+# Build context MUST be the repo root (see render.yaml: dockerContext: .).
+
+# ---------- Stage 1: web client ----------
+FROM node:20-alpine AS web
+WORKDIR /web
+COPY web-client/package.json web-client/package-lock.json ./
+RUN npm install --no-audit --no-fund
+COPY web-client/ ./
+ENV VITE_SAME_ORIGIN_API=true
+RUN npm run build
+
+# ---------- Stage 2: PocketBase ----------
+FROM alpine:3.19
+RUN apk add --no-cache ca-certificates unzip wget tzdata
+
+ARG PB_VERSION=0.22.32
+ARG PB_ARCH=amd64
+
+RUN wget -q https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_${PB_ARCH}.zip \
+    && unzip -q pocketbase_${PB_VERSION}_linux_${PB_ARCH}.zip \
+    && mv pocketbase /usr/local/bin/pocketbase \
+    && chmod +x /usr/local/bin/pocketbase \
+    && rm -f pocketbase_${PB_VERSION}_linux_${PB_ARCH}.zip
+
+WORKDIR /pb
+COPY backend/pb_migrations /pb/pb_migrations
+COPY backend/pb_hooks /pb/pb_hooks
+COPY --from=web /web/dist /pb/pb_public
+
+ENV PORT=7860
+RUN mkdir -p /pb/pb_data
+EXPOSE 7860
+
+CMD ["sh", "-c", "if [ -d /data ]; then DB=/data/pb_data; else DB=/pb/pb_data; fi; mkdir -p \"$DB\"; exec pocketbase serve --http=0.0.0.0:${PORT:-7860} --dir=\"$DB\" --publicDir=/pb/pb_public --migrationsDir=/pb/pb_migrations --hooksDir=/pb/pb_hooks"]

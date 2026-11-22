@@ -1,0 +1,40 @@
+# Build context for backend/Dockerfile.render (repo root). Keep it small.
+.git
+.github
+app
+fieldops-opencode-together
+graphify-out
+graphify-shims
+legacy-reference
+logs
+tests
+scripts
+
+# Backend runtime/build junk (pb_hooks + pb_migrations are kept)
+backend/bin
+backend/pb_data
+backend/deploy
+backend/*.log
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+backend/seed_schema.js
+backend/pbc.json
+backend/.pbcignore
+backend/fly.toml
+
+# Web client: rebuild inside the image, don't upload deps/artifacts
+web-client/node_modules
+web-client/dist
+**/node_modules
+**/dist
+node_modules
+
+# Large root files not needed for the build
+*.apk
+*.bundle
+*.csv
+*.log
+home*.png
+test_proof.jpg
+WhatsApp*.jpeg

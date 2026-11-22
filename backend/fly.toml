@@ -1,0 +1,44 @@
+# FieldOps PocketBase — Fly.io deployment
+#
+# Deploy from this folder (backend/):
+#   fly volumes create pb_data --region bom --size 1
+#   fly deploy --ha=false
+#
+# Change `app` to a globally-unique name, or run `fly apps create <name>`.
+app = "fieldops-pb"
+primary_region = "bom"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8090"
+
+# SQLite data lives on a single persistent volume. One machine only.
+[[mounts]]
+  source = "pb_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8090
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/api/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512

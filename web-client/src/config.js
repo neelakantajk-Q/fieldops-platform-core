@@ -17,6 +17,11 @@ function decodeDefaultEndpoint() {
   }
 }
 
+// When the web client is served by PocketBase itself (pb_public), call the
+// same origin so the UI and API share one URL. Enabled only at build time via
+// VITE_SAME_ORIGIN_API=true, so other deployments are unaffected.
+const SAME_ORIGIN = String(import.meta.env.VITE_SAME_ORIGIN_API || '') === 'true';
+
 export function getApiBaseUrl() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -24,6 +29,13 @@ export function getApiBaseUrl() {
   } catch (_) {}
   const env = import.meta.env.VITE_API_BASE_URL;
   if (env) return String(env).replace(/\/$/, '');
+  if (SAME_ORIGIN) {
+    try {
+      if (typeof window !== 'undefined' && window.location && window.location.origin) {
+        return window.location.origin.replace(/\/$/, '');
+      }
+    } catch (_) {}
+  }
   return decodeDefaultEndpoint();
 }
 
@@ -38,7 +50,7 @@ export function setApiBaseUrl(url) {
 
 export function isDefaultEndpoint() {
   try {
-    return !localStorage.getItem(STORAGE_KEY) && !import.meta.env.VITE_API_BASE_URL;
+    return !localStorage.getItem(STORAGE_KEY) && !import.meta.env.VITE_API_BASE_URL && !SAME_ORIGIN;
   } catch (_) {
     return true;
   }
