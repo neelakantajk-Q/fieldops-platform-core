@@ -8,7 +8,8 @@
  *
  * Rejects (CheckIn/CheckOut punches only):
  *   - mock location providers            -> Rejected_Mock
- *   - GPS accuracy worse than 25 metres   -> Rejected_Accuracy
+ *   - GPS accuracy worse than the configured gate -> Rejected_Accuracy
+ *     (settings key attendance.max_gps_accuracy_m, default 25 metres)
  *   - punches outside the effective zone  -> Rejected_Geofence (unless allow_roaming)
  *     Effective zone = per-user override when users.geofence_mode = CUSTOM,
  *     no radius limit when ROAMING, otherwise the service hub's radius.
@@ -27,6 +28,20 @@ onRecordBeforeCreateRequest((e) => {
         const isMock = rec.get("is_mock_provider") === true ||
             String(rec.get("is_mock_provider")).toLowerCase() === "true";
         const accuracy = Number(rec.get("gps_accuracy_meters"));
+
+        // Accuracy gate is settings-driven so field devices that report poor
+        // indoor accuracy (40-150m) can be tolerated where the company allows.
+        const readSetting = (companyId, key, fallback) => {
+            try {
+                const rows = $app.dao().findRecordsByFilter("settings", "key = {:k}", "", 100, 0, { k: key }) || [];
+                let pick = null;
+                for (const r of rows) {
+                    if (String(r.get("company_id") || "") === String(companyId || "")) { pick = r; break; }
+                    if (!pick) pick = r;
+                }
+                return pick ? String(pick.get("value") || "") : fallback;
+            } catch (err) { return fallback; }
+        };
 
         if (!hubId || !isFinite(lat) || !isFinite(lon)) {
             throw new BadRequestError("Missing hub_id or GPS coordinates.");
@@ -128,10 +143,13 @@ onRecordBeforeCreateRequest((e) => {
             throw new BadRequestError("Attendance rejected: mock location provider detected.");
         }
 
-        if (isFinite(accuracy) && accuracy > 25.0) {
+        const maxAccuracy = Number(readSetting(
+            String(rec.get("company_id") || ""), "attendance.max_gps_accuracy_m", "25"
+        )) || 25;
+        if (isFinite(accuracy) && accuracy > maxAccuracy) {
             rec.set("status", "Rejected_Accuracy");
             throw new BadRequestError(
-                "Attendance rejected: GPS accuracy " + accuracy + "m exceeds 25m."
+                "Attendance rejected: GPS accuracy " + accuracy + "m exceeds " + maxAccuracy + "m."
             );
         }
 
