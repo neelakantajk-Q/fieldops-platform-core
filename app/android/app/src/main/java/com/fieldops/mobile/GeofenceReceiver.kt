@@ -28,6 +28,7 @@ class GeofenceReceiver : BroadcastReceiver() {
 
         val action = when {
             mock -> "GeoMock"
+            Prefs.geofenceUnlimited -> return
             event.geofenceTransition == Geofence.GEOFENCE_TRANSITION_EXIT -> "GeoBreach"
             event.geofenceTransition == Geofence.GEOFENCE_TRANSITION_ENTER -> "GeoReturn"
             else -> return
@@ -43,13 +44,21 @@ class GeofenceReceiver : BroadcastReceiver() {
         }
 
         if (action == "GeoBreach") {
+            val grace = if (Prefs.graceMinutes > 0) Prefs.graceMinutes else 15
+            Prefs.breachAt = System.currentTimeMillis()
+            Prefs.breachDeadlineAt = Prefs.breachAt + grace * 60_000L
+            AlarmScheduler.scheduleBreach(context, Prefs.breachDeadlineAt)
+            AlarmScheduler.scheduleSiren(context, System.currentTimeMillis() + 60_000L)
             Notify.alert(
                 context, 3001,
                 "GEOFENCE BREACH",
                 "${Prefs.username} is ${beyond}m beyond the ${Prefs.hubRadius}m hub radius " +
-                        "(+${Prefs.bufferMeters}m buffer). Punches will be rejected unless a transit pass is approved."
+                        "(+${Prefs.bufferMeters}m buffer). Auto check-out in ${grace} min unless you return."
             )
         } else if (action == "GeoReturn") {
+            Prefs.breachAt = 0L
+            Prefs.breachDeadlineAt = 0L
+            AlarmScheduler.cancelBreach(context)
             Notify.alert(context, 3002, "BACK IN ZONE", "${Prefs.username} returned inside the hub radius.")
         }
     }

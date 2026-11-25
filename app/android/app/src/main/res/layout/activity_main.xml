@@ -54,7 +54,24 @@
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:text="Zone: —" android:textSize="14sp" android:textStyle="bold"
                     android:textColor="@color/fo_text" android:lineSpacingExtra="3dp" />
+
+                <TextView
+                    android:id="@+id/tvToday"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Today: —" android:textSize="12sp"
+                    android:textColor="@color/fo_text" android:lineSpacingExtra="3dp"
+                    android:paddingTop="8dp" />
             </LinearLayout>
+
+            <Button
+                android:id="@+id/btnPendingProof"
+                style="@style/FoButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="COMPLETE CHECKOUT PHOTO"
+                android:visibility="gone"
+                android:backgroundTint="@color/fo_danger" />
 
             <!-- Attendance -->
             <LinearLayout
@@ -108,7 +125,7 @@
                         style="@style/FoButton"
                         android:layout_width="0dp" android:layout_weight="1"
                         android:layout_height="wrap_content"
-                        android:text="START JOB" android:backgroundTint="@color/fo_blue" />
+                        android:text="START JOB" android:backgroundTint="@color/fo_lime" />
 
                     <Button
                         android:id="@+id/btnEndJob"
@@ -148,7 +165,7 @@
                         style="@style/FoButton"
                         android:layout_width="0dp" android:layout_weight="1"
                         android:layout_height="wrap_content"
-                        android:text="TEAM" android:backgroundTint="@color/fo_blue" />
+                        android:text="TEAM" android:backgroundTint="@color/fo_lime" />
 
                     <Button
                         android:id="@+id/btnPerformance"
@@ -193,6 +210,15 @@
                 </LinearLayout>
 
                 <Button
+                    android:id="@+id/btnDealerVisit"
+                    style="@style/FoButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="DEALER VISIT"
+                    android:backgroundTint="@color/fo_lime" />
+
+                <Button
                     android:id="@+id/btnCapture"
                     style="@style/FoButton"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -205,7 +231,7 @@
                     style="@style/FoButton"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:text="HRMS DASHBOARD"
+                    android:text="OPEN APP"
                     android:backgroundTint="@color/fo_ink" />
             </LinearLayout>
 

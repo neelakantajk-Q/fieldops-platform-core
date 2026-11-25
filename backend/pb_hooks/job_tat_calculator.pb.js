@@ -6,36 +6,66 @@
  *   onRecordBeforeUpdateRequest((e) => {...}, "job_cards")
  *   $app.dao().findRecordsByFilter(...)
  *
- * On transition to CLOSED:
+ * On transition to CLOSED (FIELD_SERVICE and HUB_REPAIR):
  *   gross_tat_minutes        = job_completed_at - job_started_at
  *   total_hold_minutes       = sum of related job_card_holds.duration_minutes
  *   active_wrench_minutes    = max(0, gross_tat - total_hold)
  *   total_downtime_minutes   = vehicle_released_at - breakdown_reported_at
+ *
+ * HUB_REPAIR fallbacks: when job_started_at / breakdown_reported_at are empty
+ * the intake time (repair_received_at) is used, so legacy repair rows close
+ * without a separate breakdown clock. repair_tat_minutes is always derived
+ * from repair_received_at -> repair_completed_at when both are present.
  *
  * The calculation is idempotent: re-saving a CLOSED job simply recomputes.
  */
 onRecordBeforeUpdateRequest((e) => {
     const rec = e.record;
     const newStatus = String(rec.get("status") || "");
+    const isRepair = String(rec.get("job_type") || "") === "HUB_REPAIR";
+    const closing = newStatus === "CLOSED";
+    const repairCompletedRaw = rec.get("repair_completed_at");
+    const repairDone = isRepair && !!String(repairCompletedRaw || "");
 
-    if (newStatus !== "CLOSED") {
+    if (!closing && !repairDone) {
         return;
     }
 
     // PB date fields read back as "2006-01-02 15:04:05.000Z" (space before
-    // time) which Goja's Date cannot parse — normalize to ISO before use.
+    // time) which Goja's Date cannot parse - normalize to ISO before use.
     const toMs = (v) => {
         if (!v) return NaN;
         const s = String(v).trim().replace(" ", "T");
         const t = new Date(s).getTime();
         return isFinite(t) ? t : new Date(String(v)).getTime();
     };
+    const iso = (ms) => new Date(ms).toISOString();
 
-    const startMs = toMs(rec.get("job_started_at"));
-    const breakdownMs = toMs(rec.get("breakdown_reported_at"));
-    if (!startMs || !breakdownMs || !isFinite(startMs) || !isFinite(breakdownMs)) {
+    const repairReceivedMs = toMs(rec.get("repair_received_at"));
+
+    let startMs = toMs(rec.get("job_started_at"));
+    if (!isFinite(startMs) && isRepair) startMs = repairReceivedMs;
+
+    // Repair TAT is independent of the downtime/wrench clocks.
+    if (isFinite(repairReceivedMs)) {
+        const repairDoneMs = repairDone ? toMs(repairCompletedRaw) : (closing ? Date.now() : NaN);
+        if (isFinite(repairDoneMs)) {
+            const doneIso = iso(repairDoneMs);
+            if (!repairDone && closing) rec.set("repair_completed_at", doneIso);
+            rec.set("repair_tat_minutes", Math.max(0, Math.round((repairDoneMs - repairReceivedMs) / 60000)));
+        }
+    }
+
+    if (!closing) {
+        return;
+    }
+
+    let breakdownMs = toMs(rec.get("breakdown_reported_at"));
+    if (!isFinite(breakdownMs)) breakdownMs = repairReceivedMs;
+    if (!isFinite(breakdownMs)) breakdownMs = startMs;
+    if (!isFinite(startMs) || !isFinite(breakdownMs)) {
         throw new BadRequestError(
-            "Cannot close job card without job_started_at and breakdown_reported_at."
+            "Cannot close job card without a start time (job_started_at or repair_received_at)."
         );
     }
 
@@ -76,7 +106,6 @@ onRecordBeforeUpdateRequest((e) => {
         ? Math.max(0, Math.round((completeMs - lastHoldMs) / 60000))
         : 0;
 
-    const iso = (ms) => new Date(ms).toISOString();
     rec.set("job_completed_at", completedRaw ? completedRaw : iso(completeMs));
     rec.set("vehicle_released_at", releasedRaw ? releasedRaw : iso(releasedMs));
     rec.set("gross_tat_minutes", grossTatMinutes);

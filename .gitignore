@@ -20,6 +20,7 @@ app/android/build/
 app/android/app/build/
 *.apk
 !FieldOps-v2.0.0-debug.apk
+!FieldOps-v2.2.0-debug.apk
 
 # OS
 .DS_Store
@@ -38,3 +39,30 @@ graphify-out/.graphify_root
 
 # Graphify automatic graph backups (regenerated, redundant with graph.json)
 graphify-out/20*/
+
+# Local runtime artifacts / dev leftovers
+logs/
+tmp_pb.*
+pb_*test.log
+test_proof.jpg
+home.png
+home_cards.png
+home_cards2.png
+home_lime.png
+home_sd.png
+home_sd2.png
+base.apk
+*.csv
+WhatsApp Image*.jpeg
+
+# Stray portal build copy under app/src (build artifact)
+app/src/main/
+
+# Graphify transient extraction cache/state (keep committed graph.json/html)
+graphify-out/.graphify_ast.json
+graphify-out/.graphify_detect.json
+graphify-out/.graphify_extract.json
+graphify-out/.graphify_python
+graphify-out/.graphify_semantic.json
+graphify-out/.graphify_build_state.json
+graphify-out/.graphify_semantic_marker

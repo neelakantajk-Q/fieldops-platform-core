@@ -37,7 +37,8 @@ class GeofenceService : Service() {
             val mock = if (Build.VERSION.SDK_INT >= 31) loc.isMock
             else @Suppress("DEPRECATION") loc.isFromMockProvider
             val dist = GeoMath.haversineMeters(loc.latitude, loc.longitude, Prefs.hubLat, Prefs.hubLng)
-            val zone = GeoMath.zone(dist, Prefs.hubRadius, Prefs.bufferMeters)
+            val zone = if (Prefs.geofenceUnlimited) "INSIDE"
+            else GeoMath.zone(dist, Prefs.hubRadius, Prefs.bufferMeters)
             Prefs.lastZone = zone
             thread {
                 try {
@@ -54,10 +55,12 @@ class GeofenceService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        val notif = Notify.service(
-            this, Notify.ID_GEO, "FieldOps geofence",
+        val note = if (Prefs.geofenceUnlimited) {
+            "Monitoring ${Prefs.hubName}: roaming (no radius limit)"
+        } else {
             "Monitoring ${Prefs.hubName}: breach beyond ${Prefs.hubRadius + Prefs.bufferMeters}m"
-        )
+        }
+        val notif = Notify.service(this, Notify.ID_GEO, "FieldOps geofence", note)
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(Notify.ID_GEO, notif, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
         } else {
@@ -72,6 +75,9 @@ class GeofenceService : Service() {
     private fun registerGeofence() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED) { stopSelf(); return }
+        // Roaming means "no radius limit" — the OS fence API needs <=1000m,
+        // so telemetry-only tracking is the correct behaviour here.
+        if (Prefs.geofenceUnlimited) return
 
         val fence = Geofence.Builder()
             .setRequestId("fieldops-hub")

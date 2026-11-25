@@ -56,21 +56,26 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.tvUser).text =
             "${Prefs.username} | ${Prefs.role}\nDevice: ${Prefs.deviceUUID.take(8)}"
 
-        findViewById<Button>(R.id.btnCheckIn).setOnClickListener { punch("CheckIn") }
-        findViewById<Button>(R.id.btnCheckOut).setOnClickListener { punch("CheckOut") }
-        findViewById<Button>(R.id.btnStartJob).setOnClickListener { startJobDialog() }
-        findViewById<Button>(R.id.btnEndJob).setOnClickListener { endJob() }
-        findViewById<Button>(R.id.btnHoldJob).setOnClickListener { holdJobDialog() }
+        findViewById<Button>(R.id.btnCheckIn).setOnClickListener { openAttendanceProof() }
+        findViewById<Button>(R.id.btnCheckOut).setOnClickListener { openCheckoutProof() }
+        findViewById<Button>(R.id.btnStartJob).setOnClickListener { guardJobGate { startJobDialog() } }
+        findViewById<Button>(R.id.btnEndJob).setOnClickListener { guardJobGate { endJob() } }
+        findViewById<Button>(R.id.btnHoldJob).setOnClickListener { guardJobGate { holdJobDialog() } }
+        findViewById<Button>(R.id.btnDealerVisit)?.setOnClickListener { dealerVisitDialog() }
+        findViewById<Button>(R.id.btnPendingProof)?.setOnClickListener {
+            val id = Prefs.pendingCheckoutId
+            if (id.isNotEmpty()) openCheckoutProof(id) else toast("No pending checkout proof.")
+        }
         findViewById<Button>(R.id.btnBubble).setOnClickListener { showBubble() }
         findViewById<Button>(R.id.btnGeo).setOnClickListener { toggleGeofence() }
         findViewById<Button>(R.id.btnCapture).setOnClickListener {
             startActivity(Intent(this, CameraOcrActivity::class.java))
         }
         findViewById<Button>(R.id.btnPortal).setOnClickListener {
-            openPortal(null)
+            openPortal("m/home")
         }
-        findViewById<Button>(R.id.btnTeam).setOnClickListener { openPortal("team") }
-        findViewById<Button>(R.id.btnPerformance).setOnClickListener { openPortal("performance") }
+        findViewById<Button>(R.id.btnTeam).setOnClickListener { openPortal("m/team") }
+        findViewById<Button>(R.id.btnPerformance).setOnClickListener { openPortal("m/performance") }
         findViewById<Button>(R.id.btnLogout).setOnClickListener {
             stopService(Intent(this, OverlayBubbleService::class.java))
             thread { Api().logout() }
@@ -78,16 +83,38 @@ class MainActivity : AppCompatActivity() {
         }
 
         requestPermissions()
+        handler.postDelayed({ handleAction(intent) }, 350L)
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        if (intent != null) {
+            setIntent(intent)
+            handleAction(intent)
+        }
+    }
+
+    /** Bridge actions launched from the mobile portal quick actions. */
+    private fun handleAction(intent: Intent?) {
+        when (intent?.getStringExtra("action")) {
+            "bubble" -> showBubble()
+            "checkin" -> openAttendanceProof()
+            "checkout" -> openCheckoutProof()
+            "scan" -> startActivity(Intent(this, CameraOcrActivity::class.java))
+        }
     }
 
     override fun onResume() {
         super.onResume()
+        thread { Api().refreshGeofence() }
+        refreshHomeSummary()
         refreshLocation()
         if (pendingBubble && Settings.canDrawOverlays(this)) {
             pendingBubble = false
             startBubbleService()
         }
         if (isSupervisor()) handler.post(pollPending)
+        handleBubbleAction()
     }
 
     override fun onPause() {
@@ -97,6 +124,151 @@ class MainActivity : AppCompatActivity() {
 
     private fun isSupervisor(): Boolean =
         listOf("Supervisor", "Moderator", "Administrator", "Platform").contains(Prefs.role)
+
+    /* --------------------------------------------------- photo gate / proofs */
+
+    /** Every punch must carry a photo; route through the proof camera. */
+    private fun openAttendanceProof() {
+        startActivity(
+            Intent(this, CameraOcrActivity::class.java).putExtra("mode", "attendance")
+        )
+    }
+
+    private fun openCheckoutProof(pendingId: String = "") {
+        val intent = Intent(this, CameraOcrActivity::class.java).putExtra("mode", "checkout")
+        if (pendingId.isNotEmpty()) intent.putExtra("attendanceId", pendingId)
+        startActivity(intent)
+    }
+
+    /** Job start/stop requires a photo check-in today (server enforces too). */
+    private fun guardJobGate(action: () -> Unit) {
+        if (Prefs.hasPhotoCheckInToday) { action(); return }
+        AlertDialog.Builder(this)
+            .setTitle("Photo check-in required")
+            .setMessage("Punch in with a photo before starting, holding or stopping a job.")
+            .setPositiveButton("CHECK IN") { _, _ -> openAttendanceProof() }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /** One-call dashboard payload: shift state, breach countdown, job, alerts. */
+    private fun refreshHomeSummary() {
+        thread {
+            try {
+                val s = Api().homeSummary()
+                val user = s.optJSONObject("user")
+                val att = s.optJSONObject("attendance")
+                val breach = s.optJSONObject("breach")
+                val job = s.optJSONObject("job")
+                val kpi = s.optJSONObject("kpi")
+                runOnUiThread {
+                    Prefs.graceMinutes = user?.optInt("graceMinutes", 0) ?: 0
+                    val checkedIn = att?.optBoolean("checkedIn") ?: false
+                    val checkinPhoto = att?.optJSONObject("lastCheckIn")?.optString("photo") ?: ""
+                    Prefs.checkInDate = if (checkedIn) Api.istToday() else ""
+                    Prefs.checkInProofAt = if (checkedIn && checkinPhoto.isNotEmpty()) System.currentTimeMillis() else 0L
+                    Prefs.pendingCheckoutId = att?.optJSONObject("pendingProof")?.optString("id") ?: ""
+                    if (breach?.optBoolean("active") == true) {
+                        Prefs.breachAt = System.currentTimeMillis()
+                    } else {
+                        Prefs.breachAt = 0L
+                        Prefs.breachDeadlineAt = 0L
+                    }
+                    val line = StringBuilder()
+                    line.append(if (checkedIn) "SHIFT: CHECKED IN" else "SHIFT: NOT CHECKED IN")
+                    if (breach != null && breach.optBoolean("active") == true) {
+                        val secs = breach.optInt("remainingSec", 0)
+                        line.append(" · BREACH ").append(secs / 60).append("m").append(secs % 60).append("s")
+                    }
+                    if (job != null) {
+                        line.append(" · JOB ").append(job.optString("jobCode"))
+                        line.append(" ").append(job.optString("status"))
+                        if (job.opt("elapsedMinutes") != null)
+                            line.append(" ").append(job.optInt("elapsedMinutes")).append("m")
+                    }
+                    if (kpi != null) {
+                        line.append("\nTODAY closed=").append(kpi.optInt("closedToday", 0))
+                        line.append(" unbilled=").append(kpi.optInt("unbilledParts", 0))
+                        line.append(" alerts=").append(kpi.optInt("unreadAlerts", 0))
+                    }
+                    tvZone.text = line.toString()
+                    val pending = findViewById<Button>(R.id.btnPendingProof)
+                    pending.visibility = if (Prefs.pendingCheckoutId.isNotEmpty())
+                        android.view.View.VISIBLE else android.view.View.GONE
+                }
+            } catch (e: Exception) { /* offline - keep last state */ }
+        }
+    }
+
+    /* -------------------------------------------------------- dealer visits */
+
+    private fun dealerVisitDialog() {
+        if (!isSupervisor()) { toast("Dealer visits are for managers."); return }
+        thread {
+            try {
+                val dealers = Api().dealers()
+                if (dealers.length() == 0) {
+                    runOnUiThread { toast("No active dealers found.") }
+                    return@thread
+                }
+                val names = ArrayList<String>()
+                val ids = ArrayList<String>()
+                for (i in 0 until dealers.length()) {
+                    val d = dealers.getJSONObject(i)
+                    names.add(d.optString("name", d.optString("dealer_code", "Dealer")))
+                    ids.add(d.optString("id"))
+                }
+                runOnUiThread {
+                    AlertDialog.Builder(this)
+                        .setTitle("New dealer visit")
+                        .setItems(names.toTypedArray()) { _, which ->
+                            dealerModeDialog(ids[which])
+                        }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                }
+            } catch (e: Exception) {
+                runOnUiThread { toast("Dealers failed: ${e.message}") }
+            }
+        }
+    }
+
+    private fun dealerModeDialog(dealerId: String) {
+        val modes = arrayOf("Dealer app code", "Scan dealer QR", "No app (web link)", "Manual (supervisor approves)")
+        AlertDialog.Builder(this)
+            .setTitle("Verification method")
+            .setItems(modes) { _, which ->
+                when (which) {
+                    0 -> dealerCodeDialog(dealerId, "APP_CODE")
+                    1 -> dealerCodeDialog(dealerId, "APP_QR")
+                    2 -> openDealerProof(dealerId, "", "WEB_CODE")
+                    3 -> openDealerProof(dealerId, "", "MANUAL")
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun dealerCodeDialog(dealerId: String, mode: String) {
+        val input = EditText(this).apply { hint = "6-digit dealer code" }
+        AlertDialog.Builder(this)
+            .setTitle("Enter dealer code")
+            .setView(input)
+            .setPositiveButton("NEXT") { _, _ ->
+                openDealerProof(dealerId, input.text.toString().trim(), mode)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun openDealerProof(dealerId: String, code: String, mode: String) {
+        val intent = Intent(this, CameraOcrActivity::class.java)
+            .putExtra("mode", "dealer")
+            .putExtra("dealerId", dealerId)
+            .putExtra("dealerCode", code)
+            .putExtra("dealerMode", mode)
+        startActivity(intent)
+    }
 
     /* --------------------------------------------------------- permissions */
 
@@ -130,12 +302,22 @@ class MainActivity : AppCompatActivity() {
                 else @Suppress("DEPRECATION") loc.isFromMockProvider
                 haveFix = true
                 val dist = GeoMath.haversineMeters(lastLat, lastLng, Prefs.hubLat, Prefs.hubLng)
-                val zone = GeoMath.zone(dist, Prefs.hubRadius, Prefs.bufferMeters)
+                val zone = if (Prefs.geofenceUnlimited) "INSIDE"
+                else GeoMath.zone(dist, Prefs.hubRadius, Prefs.bufferMeters)
                 Prefs.lastZone = zone
-                zoneBase = "Geofence: $zone | ${Math.round(dist)}m from hub" +
-                        " | breach at ${Math.round(Prefs.hubRadius + Prefs.bufferMeters)}m"
-                tvHub.text = "Hub: ${Prefs.hubName} (${Prefs.hubRadius}m radius)" +
-                        if (lastMock) " | MOCK LOCATION" else ""
+                zoneBase = if (Prefs.geofenceUnlimited) {
+                    "Geofence: ROAMING (no limit) | ${Math.round(dist)}m from hub"
+                } else {
+                    "Geofence: $zone | ${Math.round(dist)}m from hub" +
+                            " | breach at ${Math.round(Prefs.hubRadius + Prefs.bufferMeters)}m"
+                }
+                tvHub.text = if (Prefs.geofenceUnlimited) {
+                    "Hub: ${Prefs.hubName} | ROAMING (no limit)" +
+                            if (lastMock) " | MOCK LOCATION" else ""
+                } else {
+                    "Hub: ${Prefs.hubName} (${Prefs.hubRadius}m radius)" +
+                            if (lastMock) " | MOCK LOCATION" else ""
+                }
                 refreshTransitStatus()
             }
     }
@@ -228,6 +410,39 @@ class MainActivity : AppCompatActivity() {
 
     /* ---------------------------------------------------------------- jobs */
 
+    /**
+     * Bubble taps are handled as dialogs here (Activity context) instead of in
+     * the overlay Service, where TYPE_APPLICATION_OVERLAY dialogs are blocked
+     * on some OEM builds ("cannot open dialog over other apps").
+     */
+    private fun handleBubbleAction() {
+        val action = intent?.getStringExtra(EXTRA_BUBBLE_ACTION) ?: return
+        intent.removeExtra(EXTRA_BUBBLE_ACTION)
+        when (action) {
+            "stop" -> endJob()
+            "hold" -> holdJobDialog()
+            "menu" -> showBubbleActionMenu()
+        }
+    }
+
+    private fun showBubbleActionMenu() {
+        val active = Prefs.jobStartedAt > 0L || Prefs.jobId.isNotEmpty()
+        val items = if (active) arrayOf("HOLD JOB", "STOP JOB")
+                    else arrayOf("CHECK IN", "START JOB")
+        AlertDialog.Builder(this)
+            .setTitle(Prefs.jobPlate.ifEmpty { "Field actions" })
+            .setItems(items) { _, which ->
+                when (items[which]) {
+                    "HOLD JOB" -> guardJobGate { holdJobDialog() }
+                    "STOP JOB" -> guardJobGate { endJob() }
+                    "CHECK IN" -> openAttendanceProof()
+                    "START JOB" -> guardJobGate { startJobDialog() }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     private fun startJobDialog() {
         val input = EditText(this).apply { hint = "Vehicle plate"; inputType = InputType.TYPE_CLASS_TEXT }
         AlertDialog.Builder(this)
@@ -237,6 +452,7 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("START") { _, _ ->
                 val plate = input.text.toString().trim()
                 if (plate.isEmpty()) { toast("Plate required."); return@setPositiveButton }
+                if (!Prefs.hasPhotoCheckInToday) { guardJobGate { startJobDialog() }; return@setPositiveButton }
                 thread {
                     try {
                         val job = Api().startJob(plate, "MANUAL", 0.0, null)
@@ -259,23 +475,34 @@ class MainActivity : AppCompatActivity() {
                 val job = if (Prefs.jobId.isNotEmpty()) Api().findJob(Prefs.jobId)
                           else Api().latestOpenJob()
                 if (job == null) {
-                    runOnUiThread { toast("No open job found.") }
+                    Prefs.jobStartedAt = 0L; Prefs.jobId = ""; Prefs.jobPlate = ""; Prefs.jobOnHold = false
+                    runOnUiThread { toast("No open job found. Timer cleared.") }
                     return@thread
                 }
                 val jobId = job.optString("id")
                 val code = job.optString("job_code", jobId)
-                runOnUiThread {
-                    AlertDialog.Builder(this)
-                        .setTitle("Stop job?")
-                        .setMessage("Stop $code and release the vehicle?")
-                        .setPositiveButton("STOP JOB") { _, _ -> doStopJob(jobId, code) }
-                        .setNegativeButton("Cancel", null)
-                        .show()
-                }
+                runOnUiThread { confirmStop(jobId, code) }
             } catch (e: Exception) {
                 runOnUiThread { toast("End failed: ${e.message}") }
             }
         }
+    }
+
+    private fun confirmStop(jobId: String, code: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Stop job?")
+            .setMessage("Stop $code and release the vehicle?\n\nCapture the end proof (plate / odometer) to close and raise billing.")
+            .setPositiveButton("END + PROOF") { _, _ -> openEndProof(jobId, code) }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun openEndProof(jobId: String, code: String) {
+        val intent = Intent(this, CameraOcrActivity::class.java)
+            .putExtra("mode", "end")
+            .putExtra("endJobId", jobId)
+            .putExtra("endNotes", "Stopped from app · $code")
+        startActivity(intent)
     }
 
     private fun doStopJob(jobId: String, code: String) {
@@ -320,7 +547,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun openPortal(view: String?) {
         val intent = Intent(this, PortalActivity::class.java)
-        if (!view.isNullOrEmpty()) intent.putExtra("view", view)
+        intent.putExtra("view", if (view.isNullOrEmpty()) "m/home" else view)
         startActivity(intent)
     }
 
@@ -383,12 +610,20 @@ class MainActivity : AppCompatActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED) { toast("Location permission required."); return }
         ContextCompat.startForegroundService(this, Intent(this, GeofenceService::class.java))
-        toast("Geofence monitoring on (radius ${Prefs.hubRadius}m + ${Prefs.bufferMeters}m buffer).")
+        if (Prefs.geofenceUnlimited) {
+            toast("Geofence monitoring on (roaming — no radius limit).")
+        } else {
+            toast("Geofence monitoring on (radius ${Prefs.hubRadius}m + ${Prefs.bufferMeters}m buffer).")
+        }
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
 
     private fun log(line: String) {
         tvLog.text = "${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date())}  $line\n${tvLog.text}"
+    }
+
+    companion object {
+        const val EXTRA_BUBBLE_ACTION = "bubbleAction"
     }
 }

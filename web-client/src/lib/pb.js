@@ -150,24 +150,84 @@ async function findHubByName(name) {
   return (d.hubs || []).find((h) => h.name === name || h.hub_code === name) || null;
 }
 
-function joinStatus(task) {
+function num(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return isFinite(n) ? n : null;
+}
+
+function jobProof(collection, recordId, field) {
+  const filename = String(field || '');
+  return filename ? fileUrl(collection, recordId, filename) : '';
+}
+
+function docketRow(d) {
   return {
+    id: d.id || '',
+    docketNo: d.docket_no || '',
+    docketType: d.docket_type || '',
+    docketDate: d.docket_date || '',
+    partCode: d.part_code || '',
+    partName: d.part_name || '',
+    partSerial: d.part_serial || '',
+    partSpec: d.part_spec || '',
+    qty: num(d.qty),
+    supplier: d.supplier || '',
+    fromHub: d.from_hub || '',
+    toHub: d.to_hub || '',
+    trackingNo: d.tracking_no || '',
+    status: d.status || '',
+    receivedAt: d.received_at || '',
+    issuedAt: d.issued_at || '',
+    returnedAt: d.returned_at || '',
+    notes: d.notes || ''
+  };
+}
+
+function joinStatus(task) {
+  const vehicle = (task.expand && task.expand.vehicle_id) || {};
+  const recordId = task.id || '';
+  return {
+    recordId,
     jobId: task.job_code,
-    vehicleNo: (task.expand && task.expand.vehicle_id && task.expand.vehicle_id.plate_no) || '',
+    complaintNo: task.complaint_no || '',
+    jobType: task.job_type || 'FIELD_SERVICE',
+    vehicleNo: vehicle.plate_no || '',
+    vin: task.vin || vehicle.vin || '',
+    vehicleModel: task.vehicle_model || vehicle.model || '',
     client: (task.expand && task.expand.client_id && task.expand.client_id.name) || '',
     assignedUserId: (task.expand && task.expand.technician_id && task.expand.technician_id.username) || '',
     status: TO_LEGACY[task.status] || task.status,
+    rawStatus: task.status || '',
     startTime: task.job_started_at || '',
     endTime: task.job_completed_at || '',
-    turnaroundMinutes: task.gross_tat_minutes || 0,
+    repairReceivedAt: task.repair_received_at || '',
+    repairCompletedAt: task.repair_completed_at || '',
+    turnaroundMinutes: Number(task.gross_tat_minutes) || 0,
+    repairTatMinutes: num(task.repair_tat_minutes),
+    downtimeMinutes: Number(task.total_downtime_minutes) || 0,
+    holdMinutes: Number(task.total_hold_minutes) || 0,
+    wrenchMinutes: Number(task.active_wrench_minutes) || 0,
+    startOdometer: num(task.start_odometer),
+    endOdometer: num(task.end_odometer),
+    odometerUnit: task.odometer_unit || 'km',
+    startProof: jobProof('job_cards', recordId, task.start_proof_photo),
+    endProof: jobProof('job_cards', recordId, task.end_proof_photo),
     holdCategory: task.delay_category || '',
     holdReason: task.delay_reason || '',
     holdApprovedBy: task.delay_reason || '',
     plateSource: task.plate_source || '',
-    updatedBy: '', updatedByName: '',
-    updatedAt: task.updated, version: task.updated ? 2 : 1,
+    partCode: task.part_code || '',
+    partName: task.part_name || '',
+    partSerial: task.part_serial || '',
+    partSupplier: task.part_supplier || '',
+    warrantyStatus: task.warranty_status || '',
+    customerVoice: task.customer_voice || '',
+    updatedBy: '', updatedByName: '', updatedAt: task.updated, version: task.updated ? 2 : 1,
     holdToStopMinutes: Number(task.hold_to_stop_minutes) || 0,
     partsExtractStatus: task.parts_extract_status || 'NONE',
+    dockets: [],
+    docketNo: '',
     holdStartedAt: task.status === 'ON_HOLD' ? (task.updated || '') : ''
   };
 }
@@ -256,7 +316,25 @@ export async function pbCall(action, payload = {}) {
       const q = String(payload.query || payload.search || '').trim();
       if (q) f.push(`(job_code ~ "${esc(q)}" || service_notes ~ "${esc(q)}" || plate_source ~ "${esc(q)}")`);
       const res = await list('job_cards', { filter: f.join(' && '), expand: 'vehicle_id,technician_id,client_id', sort: '-created' });
-      return { ok: true, tasks: (res.items || []).map(joinStatus) };
+      let dockets = [];
+      try {
+        const dk = await list('part_dockets', { filter: 'job_card_id != ""', sort: 'docket_date', perPage: 500 });
+        dockets = dk.items || [];
+      } catch (_) { dockets = []; }
+      const byJob = {};
+      for (const d of dockets) {
+        (byJob[d.job_card_id] = byJob[d.job_card_id] || []).push(docketRow(d));
+      }
+      return {
+        ok: true,
+        tasks: (res.items || []).map((t) => {
+          const row = joinStatus(t);
+          row.dockets = byJob[t.id] || [];
+          const th = row.dockets.find((d) => d.docketType === 'TH') || row.dockets[0];
+          row.docketNo = th ? th.docketNo : '';
+          return row;
+        })
+      };
     }
     case 'saveTask': {
       const vehicle = payload.vehicleNo ? await findBy('vehicles', 'plate_no', payload.vehicleNo) : null;
@@ -640,6 +718,9 @@ export async function pbCall(action, payload = {}) {
         userId: u.id, username: u.username, fullName: u.username,
         role: u.role, hub: ((d.hubs || []).find((h) => h.id === u.hubId) || {}).name || '',
         region: ((d.regions || []).find((r) => r.id === u.regionId) || {}).name || '',
+        hubId: u.hubId || '', regionId: u.regionId || '',
+        reportsTo: u.reportsTo || '', status: u.status || '', scope: u.scope || '',
+        userCode: u.userCode || '',
         phone: u.phone, lastLocation: null, children: []
       });
       const tree = [];
@@ -665,7 +746,18 @@ export async function pbCall(action, payload = {}) {
       if (!tree.length) {
         for (const t of (byHub[Object.keys(byHub)[0]] || (d.users || []))) tree.push(node(t));
       }
-      return { ok: true, tree };
+      const regionsOut = (d.regions || []).map((r) => ({
+        id: r.id, name: r.name, code: r.region_code || '', active: r.active
+      }));
+      const hubsOut = (d.hubs || []).map((h) => ({
+        id: h.id, name: h.name, code: h.hub_code || '', regionId: h.regionId || '', active: h.active
+      }));
+      const people = (d.users || []).map((u) => {
+        const n = node(u);
+        delete n.children;
+        return n;
+      });
+      return { ok: true, tree, regions: regionsOut, hubs: hubsOut, people };
     }
     case 'getUsers': {
       const d = await directory();
@@ -731,22 +823,50 @@ export async function pbCall(action, payload = {}) {
       };
     }
     case 'getVehicleUptime': {
-      const res = await list('job_cards', { expand: 'vehicle_id', filter: 'vehicle_id != ""' });
+      const res = await list('job_cards', { expand: 'vehicle_id,technician_id', filter: 'vehicle_id != ""', sort: '-created' });
       const rows = [];
       let totalDown = 0;
+      let totalMinutes = 0;
       const byVeh = {};
       for (const t of (res.items || [])) {
-        const key = (t.expand && t.expand.vehicle_id && t.expand.vehicle_id.plate_no) || t.vehicle_id;
+        const v = (t.expand && t.expand.vehicle_id) || {};
+        const key = v.plate_no || t.vehicle_id;
         const down = Number(t.total_downtime_minutes) || 0;
-        const row = byVeh[key] || (byVeh[key] = { plateNo: key, downtimeMinutes: 0, jobs: 0 });
-        row.downtimeMinutes += down; row.jobs += 1;
+        const row = byVeh[key] || (byVeh[key] = {
+          plateNo: key, vehicleId: t.vehicle_id, model: v.model || '',
+          downtimeMinutes: 0, jobCount: 0, jobs: []
+        });
+        row.downtimeMinutes += down;
+        row.jobCount += 1;
         totalDown += down;
+        totalMinutes += down;
+        row.jobs.push({
+          recordId: t.id,
+          jobId: t.job_code,
+          jobType: t.job_type || 'FIELD_SERVICE',
+          status: t.status,
+          technician: (t.expand && t.expand.technician_id && t.expand.technician_id.username) || '',
+          startTime: t.job_started_at || '',
+          endTime: t.job_completed_at || '',
+          elapsedMinutes: Number(t.gross_tat_minutes) || 0,
+          downtimeMinutes: down,
+          holdMinutes: Number(t.total_hold_minutes) || 0,
+          startOdometer: num(t.start_odometer),
+          odometerUnit: t.odometer_unit || 'km',
+          startProof: jobProof('job_cards', t.id, t.start_proof_photo),
+          endProof: jobProof('job_cards', t.id, t.end_proof_photo)
+        });
       }
       Object.keys(byVeh).forEach((k) => rows.push(byVeh[k]));
+      rows.forEach((r) => { r.jobs.sort((a, b) => String(b.startTime).localeCompare(String(a.startTime))); });
       return {
         ok: true,
         report: {
-          summary: { downtimePct: rows.length ? Math.round(100 * totalDown / Math.max(1, rows.length * 480)) : 0, vehicleCount: rows.length },
+          summary: {
+            downtimePct: rows.length ? Math.round(100 * totalDown / Math.max(1, rows.length * 480)) : 0,
+            vehicleCount: rows.length,
+            totalDowntimeMinutes: totalDown
+          },
           rangeMinutes: 480, rows
         }
       };
@@ -931,9 +1051,62 @@ export async function pbCall(action, payload = {}) {
     }
     case 'getHoldDecision': case 'getUnapprovedJobs': case 'getTransitRequests': case 'getSplashMetadata':
       return { ok: true, unapproved: [], transitRequests: [], notifications: [] };
+    case 'getJobProofBundle': {
+      const key = String(payload.jobId || payload.recordId || payload.id || '').trim();
+      if (!key) return { ok: true, bundle: null };
+      let res = await list('job_cards', {
+        filter: `job_code = "${esc(key)}"`,
+        expand: 'vehicle_id,technician_id,client_id', perPage: 1
+      });
+      if (!(res.items || []).length) {
+        res = await list('job_cards', {
+          filter: `id = "${esc(key)}"`,
+          expand: 'vehicle_id,technician_id,client_id', perPage: 1
+        });
+      }
+      const job = (res.items || [])[0];
+      if (!job) return { ok: true, bundle: null };
+
+      let inspections = [];
+      try {
+        const r = await list('repair_inspections', { filter: `job_card_id = "${job.id}"`, sort: '-inspected_at', perPage: 20 });
+        inspections = r.items || [];
+      } catch (_) { inspections = []; }
+      let dockets = [];
+      try {
+        const r = await list('part_dockets', { filter: `job_card_id = "${job.id}"`, sort: 'docket_date', perPage: 100 });
+        dockets = r.items || [];
+      } catch (_) { dockets = []; }
+
+      const files = (rec, field) => {
+        const raw = rec[field];
+        const list_ = Array.isArray(raw) ? raw : String(raw || '').split(',').filter(Boolean);
+        return list_.map((f) => fileUrl('repair_inspections', rec.id, f)).filter(Boolean);
+      };
+      return {
+        ok: true,
+        bundle: {
+          job: joinStatus(job),
+          inspections: inspections.map((i) => ({
+            id: i.id, inspectionNo: i.inspection_no || '', inspectedAt: i.inspected_at || '',
+            observations: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => i['observation_' + n] || '').filter(Boolean),
+            ocv: i.ocv || '', defect: i.defect || '', rootCause: i.root_cause || '',
+            actionTaken: i.action_taken || '', partsReplaced: i.parts_replaced || '',
+            leakTest: i.leak_test || '', functionalTest: i.functional_test || '',
+            firmwareUpdate: i.firmware_update || '', fqcStatus: i.fqc_status || '',
+            cdcStatus: i.cdc_status || '', finalApproval: i.final_approval || '',
+            mtStatus: i.mt_status || '', notes: i.notes || '', status: i.status || '',
+            defectImages: files(i, 'defect_images'),
+            actionImages: files(i, 'action_images'),
+            finalPartImages: files(i, 'final_part_images')
+          })),
+          dockets: dockets.map(docketRow)
+        }
+      };
+    }
     case 'saveDynamicField': case 'runFinancialClosing': case 'exportMisPackage':
     case 'broadcastSync': case 'broadcastNotification':
-    case 'getCaptureFeed': case 'getJobAudit': case 'getJobProofBundle': case 'getAttendanceProofBundle':
+    case 'getCaptureFeed': case 'getJobAudit': case 'getAttendanceProofBundle':
       return { ok: true };
     default:
       fail({ message: `Unknown action "${action}" for PocketBase backend.` });

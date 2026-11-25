@@ -4,4 +4,5 @@
     <string name="bubble_end">END JOB</string>
     <string name="bubble_capture">CAPTURE OCR</string>
     <string name="bubble_close">HIDE</string>
+    <string name="attendance_proof">Attendance proof photo</string>
 </resources>

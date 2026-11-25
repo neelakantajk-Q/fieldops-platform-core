@@ -1,0 +1,14 @@
+# Keep the build context small and free of runtime data/binaries.
+pb_data/
+bin/
+deploy/
+*.log
+*.db
+*.db-shm
+*.db-wal
+seed_schema.js
+pbc.json
+.pbcignore
+Dockerfile
+.dockerignore
+README.md

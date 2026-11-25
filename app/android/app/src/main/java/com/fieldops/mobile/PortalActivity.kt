@@ -1,39 +1,57 @@
 package com.fieldops.mobile
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import android.view.View
 import android.webkit.CookieManager
+import android.webkit.JavascriptInterface
+import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Button
 import android.widget.ProgressBar
-import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.Tasks
 import org.json.JSONObject
+import java.util.HashSet
+import kotlin.concurrent.thread
 
 /**
  * FieldOps web console (the Vite portal) rendered in an in-app WebView.
  *
- * Loads the live GitHub Pages deployment so the app always gets the newest
- * UI (Team, Live Map, Performance). The session token from the native login
- * is injected into the portal's localStorage so the operator does not have to
- * sign in twice. If the live site cannot be reached the bundled offline copy
- * is used as a fallback.
+ * Loads the UI bundled in assets/portal (rebuilt with every APK) so the app
+ * ships the same Team / Live Map / Geofences build that was tested. A caller
+ * can still pass an explicit live URL to use the GitHub Pages deployment; if
+ * that host is unreachable the bundled copy takes over. The session token
+ * from the native login is injected into the portal's localStorage so the
+ * operator does not have to sign in twice.
  */
 class PortalActivity : AppCompatActivity() {
 
     companion object {
         const val ASSET_PORTAL = "file:///android_asset/portal/index.html"
         const val LIVE_PORTAL = "https://neelakantajk-q.github.io/fieldops-platform-core/"
+        private const val REQ_MIC = 9101
+        private const val REQ_ATTN = 9201
+        private const val REQ_JOB = 9202
+        private const val REQ_NOTIF = 9301
         private val TRUSTED_HOSTS = setOf(
             "neelakantajk-q.github.io",
             "github.io",
@@ -45,11 +63,23 @@ class PortalActivity : AppCompatActivity() {
 
     private lateinit var web: WebView
     private lateinit var progress: ProgressBar
-    private lateinit var title: TextView
     private var sessionInjected = false
     private var loadedLive = false
+    private var pendingMicRequest: PermissionRequest? = null
+
+    private val pollHandler = Handler(Looper.getMainLooper())
+    private val notifiedApprovals = HashSet<String>()
+
+    /** Supervisors+ poll pending transit requests so approvals pop in real time. */
+    private val approvalPoller = object : Runnable {
+        override fun run() {
+            pollApprovals()
+            pollHandler.postDelayed(this, 20_000L)
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
+    @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (!Prefs.loggedIn) {
@@ -61,12 +91,9 @@ class PortalActivity : AppCompatActivity() {
 
         web = findViewById(R.id.webPortal)
         progress = findViewById(R.id.progress)
-        title = findViewById(R.id.tvPortalTitle)
+        window.statusBarColor = 0xFFA6CE39.toInt()
 
-        findViewById<Button>(R.id.btnBack).setOnClickListener {
-            if (web.canGoBack()) web.goBack() else finish()
-        }
-        findViewById<Button>(R.id.btnRefresh).setOnClickListener { web.reload() }
+        web.addJavascriptInterface(NativeBridge(), "FieldOpsNative")
 
         web.settings.apply {
             javaScriptEnabled = true
@@ -74,6 +101,9 @@ class PortalActivity : AppCompatActivity() {
             databaseEnabled = true
             allowFileAccess = true
             allowContentAccess = true
+            // Bundled portal is a file:// SPA that calls the HTTPS API.
+            allowFileAccessFromFileURLs = true
+            allowUniversalAccessFromFileURLs = true
             loadWithOverviewMode = true
             useWideViewPort = true
             mediaPlaybackRequiresUserGesture = false
@@ -105,7 +135,9 @@ class PortalActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 progress.visibility = View.GONE
-                if (url != null && url.startsWith(LIVE_PORTAL) && !sessionInjected) {
+                val isPortal = url != null &&
+                    (url.startsWith(ASSET_PORTAL) || url.startsWith(LIVE_PORTAL))
+                if (isPortal && !sessionInjected) {
                     injectSession()
                 }
             }
@@ -124,8 +156,24 @@ class PortalActivity : AppCompatActivity() {
                 progress.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
             }
 
-            override fun onReceivedTitle(view: WebView?, pageTitle: String?) {
-                if (!pageTitle.isNullOrBlank() && title != null) title.text = pageTitle
+            /** Voice-to-text in the portal needs the WebView mic grant + RECORD_AUDIO. */
+            override fun onPermissionRequest(request: PermissionRequest?) {
+                if (request == null) return
+                val wantsAudio = request.resources.any { it == PermissionRequest.RESOURCE_AUDIO_CAPTURE }
+                if (!wantsAudio) { request.deny(); return }
+                if (ContextCompat.checkSelfPermission(
+                        this@PortalActivity, Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+                } else {
+                    pendingMicRequest = request
+                    requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_MIC)
+                }
+            }
+
+            override fun onPermissionRequestCanceled(request: PermissionRequest?) {
+                if (pendingMicRequest === request) pendingMicRequest = null
             }
         }
 
@@ -137,9 +185,232 @@ class PortalActivity : AppCompatActivity() {
 
         val view = intent.getStringExtra("view")
         val explicit = intent.getStringExtra("url")
-        val target = explicit ?: (LIVE_PORTAL + if (view.isNullOrEmpty()) "" else "#$view")
+        val hash = if (view.isNullOrEmpty()) "#m/home" else "#$view"
+        val target = explicit ?: (ASSET_PORTAL + hash)
         loadedLive = target.startsWith(LIVE_PORTAL)
         web.loadUrl(target)
+    }
+
+    /** Bridge exposed to the bundled portal as window.FieldOpsNative. */
+    inner class NativeBridge {
+        /**
+         * Home cards drive the flows directly now. This no longer opens the
+         * legacy native panel; it just nudges the portal to refresh.
+         */
+        @JavascriptInterface
+        fun openNativeTools() {
+            runOnUiThread { notifyWeb("resume", true) }
+        }
+
+        @JavascriptInterface
+        fun openScanner() {
+            runOnUiThread {
+                startActivity(
+                    Intent(this@PortalActivity, CameraOcrActivity::class.java)
+                        .putExtra("mode", "capture")
+                )
+            }
+        }
+
+        /** Home "Check in" card → attendance proof camera. */
+        @JavascriptInterface
+        fun startAttendance() {
+            runOnUiThread {
+                startActivityForResult(
+                    Intent(this@PortalActivity, CameraOcrActivity::class.java)
+                        .putExtra("mode", "attendance"),
+                    REQ_ATTN
+                )
+            }
+        }
+
+        /** Home "Start job" card → odo already collected, now plate OCR. */
+        @JavascriptInterface
+        fun startJob(odo: String) {
+            runOnUiThread {
+                startActivityForResult(
+                    Intent(this@PortalActivity, CameraOcrActivity::class.java)
+                        .putExtra("mode", "job")
+                        .putExtra("odo", odo ?: ""),
+                    REQ_JOB
+                )
+            }
+        }
+
+        /** Alias kept for older portal builds. */
+        @JavascriptInterface
+        fun checkIn() = startAttendance()
+
+        /** Home "Check out" card → geotagged CheckOut punch. */
+        @JavascriptInterface
+        fun checkOut() {
+            thread {
+                val fix = currentFix()
+                try {
+                    Api().postAttendance("CheckOut", fix.first, fix.second, fix.third, false, "Check out", null)
+                    Prefs.checkInDate = ""
+                    runOnUiThread { notifyWeb("checkout", true) }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        Toast.makeText(this@PortalActivity, "Check out failed: ${e.message}", Toast.LENGTH_LONG).show()
+                        notifyWeb("checkout", false)
+                    }
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun toggleBubble() {
+            runOnUiThread {
+                val want = !Prefs.bubbleOn
+                if (want && !Settings.canDrawOverlays(this@PortalActivity)) {
+                    Toast.makeText(
+                        this@PortalActivity,
+                        "Grant Display over other apps to use the field bubble.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@runOnUiThread
+                }
+                Prefs.bubbleOn = want
+                val intent = Intent(this@PortalActivity, OverlayBubbleService::class.java)
+                if (want) {
+                    try {
+                        ContextCompat.startForegroundService(this@PortalActivity, intent)
+                        Toast.makeText(this@PortalActivity, "Field bubbles on", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Prefs.bubbleOn = false
+                        Toast.makeText(this@PortalActivity, "Bubble failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    stopService(intent)
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun deviceInfo(): String {
+            return try {
+                JSONObject()
+                    .put("native", true)
+                    .put("username", Prefs.username)
+                    .put("role", Prefs.role)
+                    .put("hub", Prefs.hubName.ifEmpty { Prefs.hubId })
+                    .put("baseUrl", Prefs.baseUrl)
+                    .toString()
+            } catch (e: Exception) {
+                "{\"native\":true}"
+            }
+        }
+
+        @JavascriptInterface
+        fun logout() {
+            runOnUiThread {
+                try {
+                    web.evaluateJavascript(
+                        "try{localStorage.removeItem('fieldops_session')}catch(e){}", null
+                    )
+                } catch (e: Exception) { /* window gone */ }
+                Prefs.clearSession()
+                startActivity(Intent(this@PortalActivity, LoginActivity::class.java))
+                finish()
+            }
+        }
+    }
+
+    /** Push a native event into the portal so home cards can refresh. */
+    private fun notifyWeb(type: String, ok: Boolean) {
+        try {
+            web.evaluateJavascript(
+                "window.__fieldopsNativeResult && window.__fieldopsNativeResult('$type', $ok)",
+                null
+            )
+        } catch (e: Exception) { /* window gone */ }
+    }
+
+    private fun currentFix(): Triple<Double, Double, Double> {
+        try {
+            if (ContextCompat.checkSelfPermission(
+                    this, Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                val loc = Tasks.await(
+                    LocationServices.getFusedLocationProviderClient(this)
+                        .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                )
+                if (loc != null) return Triple(loc.latitude, loc.longitude, loc.accuracy.toDouble())
+            }
+        } catch (e: Exception) { /* fall back to hub */ }
+        return Triple(Prefs.hubLat, Prefs.hubLng, 9999.0)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_ATTN || requestCode == REQ_JOB) {
+            notifyWeb(if (requestCode == REQ_ATTN) "attendance" else "job", resultCode == RESULT_OK)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Returning from the proof camera (bubble path) refreshes the cards.
+        notifyWeb("resume", true)
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIF)
+        }
+        if (isApprover()) pollHandler.post(approvalPoller)
+    }
+
+    override fun onPause() {
+        pollHandler.removeCallbacks(approvalPoller)
+        super.onPause()
+    }
+
+    private fun isApprover(): Boolean =
+        Prefs.role in setOf("Supervisor", "Moderator", "Administrator", "Platform")
+
+    /**
+     * Real-time approval notifications. A request's alert is STICKY (ongoing,
+     * non-dismissible) until it is approved/rejected, mirroring the desktop
+     * console; once the server no longer lists it as PENDING the alert clears.
+     */
+    private fun pollApprovals() {
+        if (!Prefs.loggedIn || !isApprover()) return
+        thread {
+            try {
+                val arr = Api().pendingRequests()
+                val live = HashSet<String>()
+                for (i in 0 until arr.length()) {
+                    val r = arr.getJSONObject(i)
+                    val id = r.optString("id")
+                    if (id.isEmpty()) continue
+                    live.add(id)
+                    if (notifiedApprovals.contains(id)) continue
+                    notifiedApprovals.add(id)
+                    val notifId = Notify.ID_ROAM_BASE + (Math.abs(id.hashCode()) % 100000)
+                    val who = r.optString("username", "technician")
+                    val type = r.optString("request_type", "TRANSIT")
+                    val dist = Math.round(r.optDouble("distance_from_hub_meters", 0.0))
+                    Notify.alert(
+                        this, notifId,
+                        "Transit request - $who",
+                        "$type requested, ${dist}m beyond hub radius. Approve for the whole day?",
+                        listOf(
+                            "APPROVE" to RoamingActionReceiver.pi(this, id, "APPROVED", notifId),
+                            "REJECT" to RoamingActionReceiver.pi(this, id, "REJECTED", notifId)
+                        ),
+                        sticky = true
+                    )
+                }
+                val resolved = notifiedApprovals.filter { !live.contains(it) }
+                for (id in resolved) {
+                    Notify.cancel(this, Notify.ID_ROAM_BASE + (Math.abs(id.hashCode()) % 100000))
+                    notifiedApprovals.remove(id)
+                }
+            } catch (e: Exception) { /* offline - retry next cycle */ }
+        }
     }
 
     /** Seed the portal's localStorage session from the native login token. */
@@ -170,7 +441,25 @@ class PortalActivity : AppCompatActivity() {
         }
     }
 
+    override fun onRequestPermissionsResult(
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQ_MIC) return
+        val request = pendingMicRequest
+        pendingMicRequest = null
+        if (request == null) return
+        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+        } else {
+            request.deny()
+        }
+    }
+
     override fun onDestroy() {
+        pollHandler.removeCallbacks(approvalPoller)
+        try { pendingMicRequest?.deny() } catch (e: Exception) { /* window gone */ }
+        pendingMicRequest = null
         try {
             web.stopLoading()
             web.loadUrl("about:blank")

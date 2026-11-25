@@ -29,7 +29,11 @@ object Notify {
         )
     }
 
-    fun alert(ctx: Context, id: Int, title: String, text: String, actions: List<Pair<String, PendingIntent>> = emptyList()) {
+    fun alert(
+        ctx: Context, id: Int, title: String, text: String,
+        actions: List<Pair<String, PendingIntent>> = emptyList(),
+        sticky: Boolean = false
+    ) {
         val pi = PendingIntent.getActivity(
             ctx, 0, Intent(ctx, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -40,7 +44,8 @@ object Notify {
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(pi)
-            .setAutoCancel(true)
+            .setAutoCancel(!sticky)
+            .setOngoing(sticky)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
         actions.forEach { (label, intent) -> b.addAction(0, label, intent) }
         notify(ctx, id, b.build())

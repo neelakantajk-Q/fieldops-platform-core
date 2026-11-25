@@ -111,7 +111,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun goMain() {
-        startActivity(Intent(this, MainActivity::class.java))
+        startActivity(Intent(this, PortalActivity::class.java).putExtra("view", "m/home"))
         finish()
     }
 }

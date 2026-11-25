@@ -28,11 +28,11 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
 
     /* ------------------------------------------------------------ helpers */
 
-    private fun json(body: String): RequestBody = body.toRequestBody("application/json".toMediaType())
+    fun json(body: String): RequestBody = body.toRequestBody("application/json".toMediaType())
 
-    private fun url(path: String): String = baseUrl.trimEnd('/') + path
+    fun url(path: String): String = baseUrl.trimEnd('/') + path
 
-    private fun call(req: Request): JSONObject {
+    fun call(req: Request): JSONObject {
         http.newCall(req).execute().use { resp ->
             val text = resp.body?.string() ?: "{}"
             val obj = try { JSONObject(text) } catch (e: Exception) { JSONObject() }
@@ -79,10 +79,42 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
             Prefs.role = u.optString("role")
             Prefs.hubId = u.optString("hubId")
             Prefs.moduleRights = u.optString("moduleRights")
-            loadHub()
+            loadEffectiveGeofence()
             loadBufferSetting()
         }
         return resp
+    }
+
+    /** Re-read the server-resolved zone after a manager edits it. */
+    fun refreshGeofence() {
+        loadEffectiveGeofence()
+    }
+
+    /**
+     * Server resolves the effective zone: per-user CUSTOM override, hub radius,
+     * or ROAMING (no limit). Falls back to the raw hub record when offline.
+     */
+    private fun loadEffectiveGeofence() {
+        try {
+            val res = call(Request.Builder()
+                .url(url("/api/fieldops/effective-geofence"))
+                .post(json(JSONObject().put("sessionToken", Prefs.token).toString())).build())
+            val g = res.optJSONObject("geofence") ?: return loadHub()
+            val lat = g.optDouble("lat", 0.0)
+            val lng = g.optDouble("lng", 0.0)
+            if (lat != 0.0 && lng != 0.0) {
+                Prefs.hubLat = lat
+                Prefs.hubLng = lng
+            }
+            val name = g.optString("hubName")
+            if (name.isNotEmpty()) Prefs.hubName = name
+            Prefs.geofenceMode = g.optString("mode", "INHERIT_HUB")
+            Prefs.geofenceUnlimited = g.optBoolean("unlimited", false)
+            Prefs.hubRadius = if (Prefs.geofenceUnlimited) 0.0
+            else g.optDouble("radiusM", 250.0)
+        } catch (e: Exception) {
+            loadHub()
+        }
     }
 
     fun logout() {
@@ -128,10 +160,12 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
 
     fun postAttendance(
         action: String, lat: Double, lng: Double, accuracy: Double,
-        mock: Boolean, notes: String, photoFile: File? = null
+        mock: Boolean, notes: String, photoFile: File? = null,
+        photoField: String = "photo_proof",
+        auto: Boolean = false, reason: String = "", source: String = "APP"
     ): JSONObject {
         val dist = GeoMath.haversineMeters(lat, lng, Prefs.hubLat, Prefs.hubLng)
-        val within = dist <= Prefs.hubRadius
+        val within = Prefs.geofenceUnlimited || dist <= Prefs.hubRadius
         val rec = JSONObject()
             .put("company_id", Prefs.companyId)
             .put("user_id", Prefs.userId)
@@ -149,13 +183,18 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
             .put("is_mock_provider", mock)
             .put("client_request_id", requestId())
         if (notes.isNotEmpty()) rec.put("notes", notes)
+        if (auto) {
+            rec.put("auto_checkout", true)
+            rec.put("checkout_reason", reason)
+            rec.put("checkout_source", source)
+        }
 
         val mp = MultipartBody.Builder().setType(MultipartBody.FORM)
         for (key in rec.keys()) {
             val v = rec.opt(key) ?: continue
             mp.addFormDataPart(key, v.toString())
         }
-        photoFile?.let { mp.addFormDataPart("photo_proof", it.name, it.asRequestBody("image/jpeg".toMediaType())) }
+        photoFile?.let { mp.addFormDataPart(photoField, it.name, it.asRequestBody("image/jpeg".toMediaType())) }
 
         return call(Request.Builder()
             .url(url("/api/collections/attendance/records"))
@@ -279,7 +318,7 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
     }
 
     /** Start job outside radius requires a day-pass; server validates on punch only. */
-    fun startJob(plate: String, plateSource: String, confidence: Double, photoFile: File?): JSONObject {
+    fun startJob(plate: String, plateSource: String, confidence: Double, photoFile: File?, odo: String? = null): JSONObject {
         val normalized = plate.uppercase().replace(Regex("[^A-Z0-9]"), "")
         if (normalized.isEmpty()) throw ApiError(400, "Plate is required to start a job.")
         val vehicle = findVehicle(normalized) ?: createVehicle(normalized, plate, plateSource)
@@ -295,7 +334,10 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
             .put("job_started_at", isoNow())
             .put("plate_source", plateSource)
             .put("ocr_confidence", confidence)
+            .put("job_type", "FIELD_SERVICE")
+            .put("odometer_unit", "km")
             .put("client_request_id", requestId())
+        odo?.trim()?.toDoubleOrNull()?.let { rec.put("start_odometer", it) }
 
         val mp = MultipartBody.Builder().setType(MultipartBody.FORM)
         for (key in rec.keys()) mp.addFormDataPart(key, rec.optString(key))
@@ -377,6 +419,131 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
         photoFile?.let { mp.addFormDataPart("end_proof_photo", it.name, it.asRequestBody("image/jpeg".toMediaType())) }
         return call(Request.Builder()
             .url(url("/api/collections/job_cards/records/" + resolved))
+            .patch(mp.build()).build())
+    }
+
+    /* ---------------------------------------------------- dashboard / 360 */
+
+    fun homeSummary(): JSONObject {
+        val body = JSONObject().put("sessionToken", Prefs.token)
+        return call(Request.Builder()
+            .url(url("/api/fieldops/home-summary"))
+            .post(json(body.toString())).build())
+    }
+
+    fun person360(targetUserId: String): JSONObject {
+        val body = JSONObject()
+            .put("sessionToken", Prefs.token)
+            .put("userId", targetUserId)
+        return call(Request.Builder()
+            .url(url("/api/fieldops/person-360"))
+            .post(json(body.toString())).build())
+    }
+
+    /* -------------------------------------------------- checkout photo */
+
+    /** Attach the mandatory checkout photo to an auto-checkout attendance row. */
+    fun completeCheckoutPhoto(attendanceId: String, file: File): JSONObject {
+        val mp = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("checkout_photo", file.name, file.asRequestBody("image/jpeg".toMediaType()))
+            .addFormDataPart("photo_pending", "false")
+        return call(Request.Builder()
+            .url(url("/api/collections/attendance/records/" + attendanceId))
+            .patch(mp.build()).build())
+    }
+
+    /* -------------------------------------------------- parts extraction */
+
+    /** Background Gemini VLM extraction of the handwritten job card. */
+    fun extractParts(jobId: String, base64: String, auto: Boolean): JSONObject {
+        val body = JSONObject()
+            .put("sessionToken", Prefs.token)
+            .put("jobCardId", jobId)
+            .put("imageBase64", base64)
+            .put("mimeType", "image/jpeg")
+            .put("auto", auto)
+        return call(Request.Builder()
+            .url(url("/api/fieldops/parts/extract"))
+            .post(json(body.toString())).build())
+    }
+
+    fun confirmParts(jobId: String): JSONObject {
+        val patch = JSONObject()
+            .put("parts_confirmed_at", isoNow())
+            .put("parts_confirmed_by", Prefs.userId)
+        return call(Request.Builder()
+            .url(url("/api/collections/job_cards/records/" + jobId))
+            .patch(json(patch.toString())).build())
+    }
+
+    /* ---------------------------------------------------- dealer visits */
+
+    fun dealers(): JSONArray {
+        val res = call(Request.Builder()
+            .url(url("/api/collections/dealers/records?filter=(active=true)&perPage=200"))
+            .build())
+        return res.optJSONArray("items") ?: JSONArray()
+    }
+
+    fun dealerLocations(dealerId: String): JSONArray {
+        val res = call(Request.Builder()
+            .url(url("/api/collections/dealer_locations/records?filter=(dealer_id=\"" + esc(dealerId) + "\")&perPage=100"))
+            .build())
+        return res.optJSONArray("items") ?: JSONArray()
+    }
+
+    fun dealerVisits(): JSONArray {
+        val body = JSONObject().put("sessionToken", Prefs.token)
+        val res = call(Request.Builder()
+            .url(url("/api/fieldops/dealer-visits/list"))
+            .post(json(body.toString())).build())
+        return res.optJSONArray("visits") ?: JSONArray()
+    }
+
+    fun issueDealerCode(dealerId: String): JSONObject {
+        val body = JSONObject()
+            .put("sessionToken", Prefs.token)
+            .put("dealerId", dealerId)
+        return call(Request.Builder()
+            .url(url("/api/fieldops/dealer-visits/issue-code"))
+            .post(json(body.toString())).build())
+    }
+
+    fun dealerVerify(dealerId: String, token: String): JSONObject {
+        val body = JSONObject().put("dealerId", dealerId).put("token", token)
+        return call(Request.Builder()
+            .url(url("/api/fieldops/dealer-verify"))
+            .post(json(body.toString())).build())
+    }
+
+    fun startDealerVisit(
+        dealerId: String, locationId: String, mode: String, code: String,
+        lat: Double, lng: Double, accuracy: Double, photoFile: File?
+    ): JSONObject {
+        val mp = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("company_id", Prefs.companyId)
+            .addFormDataPart("dealer_id", dealerId)
+            .addFormDataPart("manager_id", Prefs.userId)
+            .addFormDataPart("verification_mode", mode)
+            .addFormDataPart("visit_type", "ROUTINE")
+            .addFormDataPart("latitude", lat.toString())
+            .addFormDataPart("longitude", lng.toString())
+            .addFormDataPart("client_request_id", requestId())
+        if (locationId.isNotEmpty()) mp.addFormDataPart("dealer_location_id", locationId)
+        if (code.isNotEmpty()) mp.addFormDataPart("code", code)
+        photoFile?.let { mp.addFormDataPart("check_in_photo", it.name, it.asRequestBody("image/jpeg".toMediaType())) }
+        return call(Request.Builder()
+            .url(url("/api/collections/dealer_visits/records"))
+            .post(mp.build()).build())
+    }
+
+    fun completeDealerVisit(visitId: String, photoFile: File?, outcome: String): JSONObject {
+        val mp = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("status", "COMPLETED")
+            .addFormDataPart("outcome", outcome)
+        photoFile?.let { mp.addFormDataPart("check_out_photo", it.name, it.asRequestBody("image/jpeg".toMediaType())) }
+        return call(Request.Builder()
+            .url(url("/api/collections/dealer_visits/records/" + visitId))
             .patch(mp.build()).build())
     }
 

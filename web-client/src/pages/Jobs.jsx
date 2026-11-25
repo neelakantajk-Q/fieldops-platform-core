@@ -49,6 +49,43 @@ function statusTone(status) {
   return 'warn';
 }
 
+function fmtMinutes(m) {
+  const n = Number(m) || 0;
+  if (!n) return '—';
+  return `${Math.floor(n / 60)}h ${n % 60}m`;
+}
+
+function fmtAt(v) {
+  if (!v) return '—';
+  const d = new Date(String(v).replace(' ', 'T'));
+  if (isNaN(d.getTime())) return String(v);
+  return d.toLocaleString();
+}
+
+function Odo({ value, unit }) {
+  if (value === null || value === undefined || value === '') return <span className="muted">—</span>;
+  return <span className="mono">{Number(value).toLocaleString()} {unit || 'km'}</span>;
+}
+
+function ProofThumb({ url, label }) {
+  if (!url) return null;
+  return (
+    <a href={url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} title={label}>
+      <img src={url} alt={label} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)' }} />
+    </a>
+  );
+}
+
+function ProofRow({ task }) {
+  if (!task.startProof && !task.endProof) return <span className="muted">—</span>;
+  return (
+    <div className="row" style={{ gap: 6 }}>
+      <ProofThumb url={task.startProof} label="Start proof" />
+      <ProofThumb url={task.endProof} label="Stop proof" />
+    </div>
+  );
+}
+
 export default function Jobs({ session, checkedIn }) {
   const toast = useToast();
   const [status, setStatus] = useState('');
@@ -56,6 +93,8 @@ export default function Jobs({ session, checkedIn }) {
   const [query, setQuery] = useState({ status: '', search: '' });
   const [editing, setEditing] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [viewing, setViewing] = useState(null);
+  const [type, setType] = useState('');
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -68,7 +107,7 @@ export default function Jobs({ session, checkedIn }) {
     [query.status, query.search]
   );
 
-  const rows = (data && data.tasks) || [];
+  const rows = ((data && data.tasks) || []).filter((r) => !type || (r.jobType || 'FIELD_SERVICE') === type);
 
   async function requestHold(task) {
     const category = window.prompt(`Hold category for ${task.jobId}:`, HOLD_CATEGORIES[0]);
@@ -92,11 +131,23 @@ export default function Jobs({ session, checkedIn }) {
   }
 
   const columns = useMemo(() => [
-    { key: 'jobId', label: 'Job card', render: (r) => <strong>{r.jobId}</strong> },
-    { key: 'complaintNo', label: 'Complaint', render: (r) => <span className="mono small">{r.complaintNo || '—'}</span> },
-    { key: 'vehicleNo', label: 'Vehicle', render: (r) => r.vehicleNo || '—' },
-    { key: 'client', label: 'Client', render: (r) => r.client || '—' },
+    {
+      key: 'jobId', label: 'Job card',
+      render: (r) => (
+        <button type="button" className="link-btn" onClick={() => setViewing(r)} title="Open job details">
+          <strong>{r.jobId}</strong>
+        </button>
+      )
+    },
+    { key: 'jobType', label: 'Type', render: (r) => <span className={`badge ${r.jobType === 'HUB_REPAIR' ? 'warn' : 'neutral'}`}>{r.jobType === 'HUB_REPAIR' ? 'Repair' : 'Field'}</span> },
+    { key: 'complaintNo', label: 'Complaint', render: (r) => <span className="mono small">{r.complaintNo || '�?"'}</span> },
+    { key: 'docketNo', label: 'Docket', render: (r) => <span className="mono small">{r.docketNo || '�?"'}</span> },
+    { key: 'vehicleNo', label: 'Vehicle', render: (r) => r.vehicleNo || '�?"' },
+    { key: 'client', label: 'Client', render: (r) => r.client || '�?"' },
     { key: 'assignedUserId', label: 'Assigned' },
+    { key: 'odo', label: 'Start odo', render: (r) => <Odo value={r.startOdometer} unit={r.odometerUnit} /> },
+    { key: 'proof', label: 'Start/stop proof', render: (r) => <ProofRow task={r} /> },
+    { key: 'downtime', label: 'Downtime', render: (r) => fmtMinutes(r.downtimeMinutes) },
     {
       key: 'status', label: 'Status',
       render: (r) => (
@@ -154,6 +205,11 @@ export default function Jobs({ session, checkedIn }) {
             <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: 150 }}>
               <option value="">All statuses</option>
               {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select value={type} onChange={(e) => setType(e.target.value)} style={{ width: 140 }}>
+              <option value="">All types</option>
+              <option value="FIELD_SERVICE">Field service</option>
+              <option value="HUB_REPAIR">Hub repair</option>
             </select>
             <input placeholder="Search job / vehicle / client" value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: 220 }} />
             <Btn size="sm" variant="ghost" onClick={() => setQuery({ status, search: search.trim() })}>Apply</Btn>

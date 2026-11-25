@@ -9,7 +9,7 @@ import android.graphics.Paint
 object Watermark {
 
     fun stamp(src: Bitmap, lines: List<String>): Bitmap {
-        val maxW = 1600
+        val maxW = 1280
         val bmp = if (src.width > maxW) {
             val scale = maxW.toFloat() / src.width
             Bitmap.createScaledBitmap(

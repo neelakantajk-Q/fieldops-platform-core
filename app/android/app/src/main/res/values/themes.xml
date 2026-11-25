@@ -6,7 +6,7 @@
         <item name="colorOnPrimary">@color/fo_white</item>
         <item name="colorPrimaryContainer">@color/fo_success_soft</item>
         <item name="colorOnPrimaryContainer">@color/fo_green_dark</item>
-        <item name="colorSecondary">@color/fo_blue</item>
+        <item name="colorSecondary">@color/fo_lime</item>
         <item name="colorOnSecondary">@color/fo_white</item>
         <item name="colorTertiary">@color/fo_lime</item>
         <item name="colorOnTertiary">@color/fo_on_green</item>
@@ -28,7 +28,6 @@
         <item name="android:statusBarColor">@color/fo_bg</item>
         <item name="android:navigationBarColor">@color/fo_bg</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowLightNavigationBar">true</item>
     </style>
 
     <style name="FoCard">

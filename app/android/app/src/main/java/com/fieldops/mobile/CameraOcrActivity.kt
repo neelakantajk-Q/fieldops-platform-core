@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -38,7 +39,7 @@ import kotlin.concurrent.thread
  */
 class CameraOcrActivity : AppCompatActivity() {
 
-    enum class Mode { ATTENDANCE, JOB, CAPTURE }
+    enum class Mode { ATTENDANCE, JOB, END_JOB, CAPTURE, CHECKOUT, DEALER }
 
     private lateinit var previewView: PreviewView
     private lateinit var imageCapture: ImageCapture
@@ -46,10 +47,12 @@ class CameraOcrActivity : AppCompatActivity() {
     private lateinit var tvOcr: TextView
     private lateinit var tvStatus: TextView
     private lateinit var btnUpload: Button
+    private lateinit var ivProof: ImageView
     private lateinit var mode: Mode
     private var capturedFile: File? = null
     private var lastConfidence: Double = 0.0
     private var ocrPlate: String = ""
+    private var odo: String = ""
     private var submitting = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,10 +62,15 @@ class CameraOcrActivity : AppCompatActivity() {
         mode = when (intent.getStringExtra("mode")) {
             "attendance" -> Mode.ATTENDANCE
             "job" -> Mode.JOB
+            "end" -> Mode.END_JOB
+            "checkout" -> Mode.CHECKOUT
+            "dealer" -> Mode.DEALER
             else -> Mode.CAPTURE
         }
+        odo = intent.getStringExtra("odo") ?: ""
 
         previewView = findViewById(R.id.previewView)
+        ivProof = findViewById(R.id.ivProof)
         etPlate = findViewById(R.id.etPlate)
         tvOcr = findViewById(R.id.tvOcr)
         tvStatus = findViewById(R.id.tvStatus)
@@ -75,17 +83,26 @@ class CameraOcrActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.tvModeChip).text = when (mode) {
             Mode.ATTENDANCE -> "ATTENDANCE"
             Mode.JOB -> "JOB CARD"
+            Mode.END_JOB -> "END JOB"
             Mode.CAPTURE -> "CAPTURE"
+            Mode.CHECKOUT -> "CHECK OUT"
+            Mode.DEALER -> "DEALER VISIT"
         }
         findViewById<TextView>(R.id.tvTitle).text = when (mode) {
             Mode.ATTENDANCE -> "Attendance verification"
             Mode.JOB -> "Vehicle identification"
+            Mode.END_JOB -> "End job proof"
             Mode.CAPTURE -> "Capture proof"
+            Mode.CHECKOUT -> "Checkout proof"
+            Mode.DEALER -> "Dealer visit proof"
         }
         findViewById<TextView>(R.id.tvSubtitle).text = when (mode) {
             Mode.ATTENDANCE -> "Photo attendance · geotagged · one tap submit"
             Mode.JOB -> "Number plate OCR · Indian format · auto-validated"
+            Mode.END_JOB -> "End-proof photo · OCR + billing evidence"
             Mode.CAPTURE -> "Geotagged · watermarked · verifiable"
+            Mode.CHECKOUT -> "Photo checkout · GPS + address burned on"
+            Mode.DEALER -> "Photo + verification code · geotagged"
         }
 
         when (mode) {
@@ -99,10 +116,27 @@ class CameraOcrActivity : AppCompatActivity() {
                 btnUpload.text = "START JOB"
                 tvStatus.text = "Photograph the number plate to start the job card."
             }
+            Mode.END_JOB -> {
+                etPlate.visibility = View.GONE
+                btnUpload.text = "END JOB"
+                tvStatus.text = "Photograph the number plate / odometer to close the job card."
+            }
             Mode.CAPTURE -> {
                 etPlate.visibility = View.GONE
                 btnUpload.text = "SAVE CAPTURE"
                 tvStatus.text = "Capture the vehicle or odometer reading."
+            }
+            Mode.CHECKOUT -> {
+                etPlate.visibility = View.GONE
+                tvOcr.visibility = View.GONE
+                btnUpload.text = "SUBMIT CHECKOUT"
+                tvStatus.text = "Photograph yourself at the exit to close the shift."
+            }
+            Mode.DEALER -> {
+                etPlate.visibility = View.GONE
+                tvOcr.visibility = View.GONE
+                btnUpload.text = "SUBMIT VISIT PROOF"
+                tvStatus.text = "Photograph the dealer visit proof with the code."
             }
         }
 
@@ -130,7 +164,7 @@ class CameraOcrActivity : AppCompatActivity() {
                 imageCapture = ImageCapture.Builder()
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                     .build()
-                val selector = if (mode == Mode.ATTENDANCE)
+                val selector = if (mode == Mode.ATTENDANCE || mode == Mode.CHECKOUT)
                     CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
                 provider.unbindAll()
                 provider.bindToLifecycle(this, selector, preview, imageCapture)
@@ -149,8 +183,11 @@ class CameraOcrActivity : AppCompatActivity() {
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(res: ImageCapture.OutputFileResults) {
                     capturedFile = file
+                    ivProof.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
+                    ivProof.visibility = if (mode == Mode.ATTENDANCE || mode == Mode.CHECKOUT || mode == Mode.DEALER)
+                        View.VISIBLE else View.GONE
                     tvStatus.text = "Proof captured. Running verification…"
-                    if (mode == Mode.ATTENDANCE) stampProof(file, "")
+                    if (mode == Mode.ATTENDANCE || mode == Mode.CHECKOUT || mode == Mode.DEALER) stampProof(file, "")
                     else runOcr(file)
                 }
                 override fun onError(exc: ImageCaptureException) {
@@ -191,17 +228,19 @@ class CameraOcrActivity : AppCompatActivity() {
         thread {
             val src = BitmapFactory.decodeFile(file.absolutePath) ?: return@thread
             val fix = currentFix()
+            val address = GeoAddress.resolve(this, fix.first, fix.second)
             val stamped = Watermark.stamp(
                 src, listOf(
                     "FIELD OPS · ${Api.istToday()}",
                     "IST ${Api.isoNow()}",
                     String.format("GPS %.5f, %.5f · ±%.0fm", fix.first, fix.second, fix.third),
                     "Plate: ${plate.ifEmpty { "—" }}",
+                    if (address.isNotEmpty()) "Near: $address" else "Near: —",
                     "User: ${Prefs.username} · ${Prefs.deviceUUID.take(8)}"
                 )
             )
             try {
-                file.outputStream().use { stamped.compress(Bitmap.CompressFormat.JPEG, 88, it) }
+                file.outputStream().use { stamped.compress(Bitmap.CompressFormat.JPEG, 72, it) }
             } catch (e: Exception) { /* keep original */ }
             stamped.recycle(); src.recycle()
             runOnUiThread {
@@ -262,7 +301,59 @@ class CameraOcrActivity : AppCompatActivity() {
         when (mode) {
             Mode.ATTENDANCE -> submitAttendance(file)
             Mode.JOB -> submitJob(file)
+            Mode.END_JOB -> submitEndJob(file)
             Mode.CAPTURE -> saveCapture(file)
+            Mode.CHECKOUT -> submitCheckout(file)
+            Mode.DEALER -> submitDealer(file)
+        }
+    }
+
+    /** Mandatory photo checkout for every user (technicians and managers). */
+    private fun submitCheckout(file: File) {
+        val fix = currentFix()
+        thread {
+            try {
+                val resp = Api().postAttendance(
+                    "CheckOut", fix.first, fix.second, fix.third, isMock(),
+                    "Photo checkout proof", file, photoField = "checkout_photo"
+                )
+                Prefs.checkInDate = ""
+                Prefs.checkInProofAt = 0L
+                Prefs.pendingCheckoutId = ""
+                runOnUiThread {
+                    Toast.makeText(this, "Checked out · ${resp.optString("status", "Verified")}", Toast.LENGTH_LONG).show()
+                    setResult(RESULT_OK, Intent().putExtra("checkout", true))
+                    finish()
+                }
+            } catch (e: Exception) {
+                fail("Checkout failed: ${e.message}")
+            }
+        }
+    }
+
+    /** Manager dealer visit: photo + backend verification code. */
+    private fun submitDealer(file: File) {
+        val dealerId = intent.getStringExtra("dealerId") ?: ""
+        val locationId = intent.getStringExtra("dealerLocationId") ?: ""
+        val code = intent.getStringExtra("dealerCode") ?: ""
+        val mode = intent.getStringExtra("dealerMode") ?: "APP_CODE"
+        if (dealerId.isEmpty()) { fail("No dealer selected."); return }
+        val fix = currentFix()
+        thread {
+            try {
+                val resp = Api().startDealerVisit(
+                    dealerId, locationId, mode, code,
+                    fix.first, fix.second, fix.third, file
+                )
+                Prefs.dealerVisitId = resp.optString("id")
+                runOnUiThread {
+                    Toast.makeText(this, "Visit ${resp.optString("visit_no")} started.", Toast.LENGTH_LONG).show()
+                    setResult(RESULT_OK, Intent().putExtra("dealerVisit", resp.optString("id")))
+                    finish()
+                }
+            } catch (e: Exception) {
+                fail("Dealer visit failed: ${e.message}")
+            }
         }
     }
 
@@ -275,6 +366,7 @@ class CameraOcrActivity : AppCompatActivity() {
                     isMock(), "Photo attendance proof", file
                 )
                 Prefs.checkInDate = Api.istToday()
+                Prefs.checkInProofAt = System.currentTimeMillis()
                 Prefs.hubDistance = GeoMath.haversineMeters(fix.first, fix.second, Prefs.hubLat, Prefs.hubLng)
                 runOnUiThread {
                     Toast.makeText(
@@ -311,6 +403,19 @@ class CameraOcrActivity : AppCompatActivity() {
             Prefs.transitPending = true
             Prefs.transitApproved = resp.optBoolean("alreadyApproved")
             Prefs.checkInDate = Api.istToday()
+            if (!Prefs.transitApproved) {
+                val requestId = resp.optString("id")
+                val notifId = Notify.ID_ROAM_BASE + (Math.abs(requestId.hashCode()) % 100000)
+                Notify.alert(
+                    this, notifId,
+                    "Transit request - ${Prefs.username}",
+                    "Out-of-radius photo attendance · ${Math.round(GeoMath.haversineMeters(fix.first, fix.second, Prefs.hubLat, Prefs.hubLng))}m from hub. Approve for the whole day?",
+                    listOf(
+                        "APPROVE" to RoamingActionReceiver.pi(this, requestId, "APPROVED", notifId),
+                        "REJECT" to RoamingActionReceiver.pi(this, requestId, "REJECTED", notifId)
+                    )
+                )
+            }
             runOnUiThread {
                 Toast.makeText(
                     this,
@@ -338,7 +443,7 @@ class CameraOcrActivity : AppCompatActivity() {
         val source = if (typed.equals(ocrPlate, true) || typed.isEmpty()) "OCR" else "MANUAL"
         thread {
             try {
-                val job = Api().startJob(plate, source, lastConfidence, file)
+                val job = Api().startJob(plate, source, lastConfidence, file, odo)
                 val startedAt = System.currentTimeMillis()
                 Prefs.jobStartedAt = startedAt
                 Prefs.jobPlate = plate
@@ -349,11 +454,67 @@ class CameraOcrActivity : AppCompatActivity() {
                         "Job ${job.optString("job_code", job.optString("id"))} started · timer running",
                         Toast.LENGTH_LONG
                     ).show()
-                    setResult(RESULT_OK, Intent().putExtra("job", true).putExtra("plate", plate))
+                    setResult(RESULT_OK, Intent().putExtra("job", true).putExtra("plate", plate).putExtra("odo", odo))
                     finish()
                 }
             } catch (e: Exception) {
                 fail("Start failed: ${e.message}")
+            }
+        }
+    }
+
+    /** Close the active job card, attaching this photo as the end proof. */
+    private fun submitEndJob(file: File) {
+        val jobId = (intent.getStringExtra("endJobId") ?: "").ifEmpty { Prefs.jobId }
+        val notes = (intent.getStringExtra("endNotes") ?: "").ifEmpty { "End proof photo" }
+        if (jobId.isEmpty()) {
+            submitting = false; btnUpload.isEnabled = true
+            Toast.makeText(this, "No active job to end.", Toast.LENGTH_LONG).show()
+            return
+        }
+        thread {
+            try {
+                val job = Api().endJob(jobId, notes, file)
+                val code = job.optString("job_code", jobId)
+                Prefs.jobStartedAt = 0L; Prefs.jobId = ""; Prefs.jobPlate = ""; Prefs.jobOnHold = false
+
+                // Background Gemini VLM extraction of the handwritten job card.
+                var extracted = 0
+                var extractMsg = ""
+                try {
+                    val b64 = android.util.Base64.encodeToString(file.readBytes(), android.util.Base64.NO_WRAP)
+                    val ex = Api().extractParts(jobId, b64, true)
+                    extracted = ex.optJSONObject("counts")?.optInt("total", 0) ?: 0
+                    if (!ex.optBoolean("success", true)) extractMsg = ex.optString("message", "")
+                } catch (e: Exception) {
+                    extractMsg = e.message ?: "extraction unavailable"
+                }
+                val msg = extractMsg
+                val count = extracted
+                runOnUiThread {
+                    Toast.makeText(this, "Job $code ended · end proof uploaded", Toast.LENGTH_LONG).show()
+                    if (count > 0) {
+                        androidx.appcompat.app.AlertDialog.Builder(this)
+                            .setTitle("Parts extracted: $count")
+                            .setMessage(
+                                "The handwritten job card was read in the background and saved as UNBILLED.\n\n" +
+                                "Confirm now, or edit later in Part Extraction / Bulk Parts."
+                            )
+                            .setPositiveButton("CONFIRM PARTS") { _, _ ->
+                                thread { try { Api().confirmParts(jobId) } catch (e: Exception) {} }
+                                finish()
+                            }
+                            .setNegativeButton("EDIT LATER") { _, _ -> finish() }
+                            .show()
+                    } else {
+                        if (msg.isNotEmpty())
+                            Toast.makeText(this, "Extraction: $msg", Toast.LENGTH_LONG).show()
+                        setResult(RESULT_OK)
+                        finish()
+                    }
+                }
+            } catch (e: Exception) {
+                fail("End failed: ${e.message}")
             }
         }
     }
