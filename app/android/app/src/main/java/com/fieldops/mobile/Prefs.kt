@@ -1,18 +1,22 @@
 package com.fieldops.mobile
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import java.util.UUID
 
 /** Session + config store. Base URL defaults to the Render-hosted PocketBase instance. */
 object Prefs {
     private lateinit var sp: SharedPreferences
+    private var appCtx: Context? = null
+    private var lastRedirectAt = 0L
 
     const val DEFAULT_BASE_URL = "https://fieldops-pb.onrender.com"
     const val DEFAULT_BUFFER_METERS = 100
 
     fun init(ctx: Context) {
         sp = ctx.getSharedPreferences("fieldops", Context.MODE_PRIVATE)
+        appCtx = ctx.applicationContext
     }
 
     private fun put(k: String, v: String) = sp.edit().putString(k, v).apply()
@@ -196,6 +200,35 @@ object Prefs {
     val loggedIn: Boolean get() = token.isNotEmpty() && userId.isNotEmpty()
 
     fun clearSession() {
-        token = ""; lastZone = "—"
+        token = ""; lastZone = "-"
+    }
+
+    /**
+     * Server rejected the session token (401). Wipe the local session and bounce
+     * the user back to the login screen so a stale token never dead-ends the flow
+     * with a confusing error. Cooldown avoids duplicate launches on parallel 401s.
+     */
+    fun expireSessionAndLogin() {
+        val now = System.currentTimeMillis()
+        if (now - lastRedirectAt < 3000) return
+        lastRedirectAt = now
+        try {
+            clearSession()
+            userId = ""
+            companyId = ""
+            hubId = ""
+            transitPending = false
+            transitApproved = false
+            val ctx = appCtx ?: return
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                try {
+                    val i = Intent(ctx, LoginActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    ctx.startActivity(i)
+                } catch (e: Exception) { /* best effort */ }
+            }
+        } catch (e: Exception) {
+            /* best effort - nothing else to do offline */
+        }
     }
 }

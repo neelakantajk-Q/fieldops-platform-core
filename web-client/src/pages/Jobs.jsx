@@ -316,6 +316,16 @@ function JobModal({ open, task, session, checkedIn, onClose, onSaved }) {
         <Field label="Service notes"><VoiceTextarea value={value('serviceNotes')} onChange={set('serviceNotes')} rows="2" /></Field>
         <Field label="Resolution notes"><VoiceTextarea value={value('resolutionNotes')} onChange={set('resolutionNotes')} rows="2" /></Field>
       </div>
+      {editing ? (
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: 'var(--m-card, rgba(255,255,255,0.06))' }}>
+          <div className="small muted" style={{ marginBottom: 8, fontWeight: 700 }}>Job timing</div>
+          <div className="row" style={{ gap: 16, flexWrap: 'wrap' }}>
+            <div><span className="muted small">Start</span><strong style={{ display: 'block' }}>{task.startTime ? fmtAt(task.startTime) : 'N/A'}</strong></div>
+            <div><span className="muted small">End</span><strong style={{ display: 'block' }}>{task.endTime ? fmtAt(task.endTime) : task.turnaroundMinutes ? fmtMinutes(task.turnaroundMinutes) : 'N/A'}</strong></div>
+            <div><span className="muted small">Elapsed</span><strong style={{ display: 'block' }}>{elapsed(task, Date.now())}</strong></div>
+          </div>
+        </div>
+      ) : null}
       {msg ? <div className="login-msg">{msg}</div> : null}
     </Modal>
   );

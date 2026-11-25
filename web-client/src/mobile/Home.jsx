@@ -318,10 +318,6 @@ export function Home({ session, unread }) {
             <span className="m-quick-ico q-blue"><Icon name="scan" size={18} /></span>
             Scan
           </button>
-          <button type="button" className="m-quick" onClick={() => go('notifications')}>
-            <span className="m-quick-ico q-amber"><Icon name="bell" size={18} /></span>
-            Alerts
-          </button>
           <button type="button" className="m-quick" onClick={() => nativeCall('toggleBubble')}>
             <span className="m-quick-ico q-violet"><Icon name="route" size={18} /></span>
             Bubble

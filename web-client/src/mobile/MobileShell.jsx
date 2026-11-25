@@ -83,7 +83,9 @@ export function MobileShell({ session, onAuthChange, unread, online }) {
       <div className="m-viewport">{body}</div>
 
       <nav className="m-tabbar" aria-label="App">
-        <Tab id="home" label="Home" icon="home" active={active === 'home'} onClick={() => go('home')} />
+        {modules.some((m) => m.id === 'performance') ? (
+          <Tab id="performance" label="Performance" icon="chart" active={active === 'performance'} onClick={() => go('performance')} />
+        ) : null}
         <Tab id="jobs" label="Jobs" icon="briefcase" active={active === 'jobs'} onClick={() => go('jobs')} />
         <button type="button" className="m-fab" onClick={() => setScanOpen(true)} aria-label="Scan">
           <Icon name="scan" size={25} />

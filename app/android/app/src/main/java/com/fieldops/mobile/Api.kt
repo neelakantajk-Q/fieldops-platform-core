@@ -38,6 +38,10 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
             val obj = try { JSONObject(text) } catch (e: Exception) { JSONObject() }
             if (!resp.isSuccessful) {
                 val msg = obj.optString("message", "HTTP ${resp.code}")
+                if (resp.code == 401 && !req.url.encodedPath.endsWith("/api/fieldops/login")) {
+                    // Stale/invalid session token: wipe it and bounce to login.
+                    Prefs.expireSessionAndLogin()
+                }
                 throw ApiError(resp.code, msg)
             }
             return obj

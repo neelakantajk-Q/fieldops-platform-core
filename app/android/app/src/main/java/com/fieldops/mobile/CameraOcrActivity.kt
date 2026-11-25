@@ -1,4 +1,4 @@
-package com.fieldops.mobile
+﻿package com.fieldops.mobile
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -97,12 +97,12 @@ class CameraOcrActivity : AppCompatActivity() {
             Mode.DEALER -> "Dealer visit proof"
         }
         findViewById<TextView>(R.id.tvSubtitle).text = when (mode) {
-            Mode.ATTENDANCE -> "Photo attendance · geotagged · one tap submit"
-            Mode.JOB -> "Number plate OCR · Indian format · auto-validated"
-            Mode.END_JOB -> "End-proof photo · OCR + billing evidence"
-            Mode.CAPTURE -> "Geotagged · watermarked · verifiable"
-            Mode.CHECKOUT -> "Photo checkout · GPS + address burned on"
-            Mode.DEALER -> "Photo + verification code · geotagged"
+            Mode.ATTENDANCE -> "Photo attendance - geotagged - one tap submit"
+            Mode.JOB -> "Number plate OCR - Indian format - auto-validated"
+            Mode.END_JOB -> "End-proof photo - OCR + billing evidence"
+            Mode.CAPTURE -> "Geotagged - watermarked - verifiable"
+            Mode.CHECKOUT -> "Photo checkout - GPS + address burned on"
+            Mode.DEALER -> "Photo + verification code - geotagged"
         }
 
         when (mode) {
@@ -123,6 +123,7 @@ class CameraOcrActivity : AppCompatActivity() {
             }
             Mode.CAPTURE -> {
                 etPlate.visibility = View.GONE
+                tvOcr.visibility = View.GONE
                 btnUpload.text = "SAVE CAPTURE"
                 tvStatus.text = "Capture the vehicle or odometer reading."
             }
@@ -186,7 +187,7 @@ class CameraOcrActivity : AppCompatActivity() {
                     ivProof.setImageBitmap(BitmapFactory.decodeFile(file.absolutePath))
                     ivProof.visibility = if (mode == Mode.ATTENDANCE || mode == Mode.CHECKOUT || mode == Mode.DEALER)
                         View.VISIBLE else View.GONE
-                    tvStatus.text = "Proof captured. Running verification…"
+                    tvStatus.text = "Proof captured. Running verification."
                     if (mode == Mode.ATTENDANCE || mode == Mode.CHECKOUT || mode == Mode.DEALER) stampProof(file, "")
                     else runOcr(file)
                 }
@@ -209,11 +210,11 @@ class CameraOcrActivity : AppCompatActivity() {
                 runOnUiThread {
                     if (plate.isNotEmpty()) etPlate.setText(plate)
                     tvOcr.text = if (raw.isBlank()) "OCR: no text detected"
-                    else "OCR · ${raw.replace("\n", " ").take(120)}"
+                    else "OCR - ${raw.replace("\n", " ").take(120)}"
                     tvStatus.text = if (plate.isNotEmpty())
-                        "Plate detected: $plate — confirm or edit, then start the job."
+                        "Plate detected: $plate - confirm or edit, then start the job."
                     else
-                        "Plate not recognised — enter it manually, then start the job."
+                        "Plate not recognised - enter it manually, then start the job."
                 }
                 stampProof(file, plate)
                 src.recycle()
@@ -231,12 +232,12 @@ class CameraOcrActivity : AppCompatActivity() {
             val address = GeoAddress.resolve(this, fix.first, fix.second)
             val stamped = Watermark.stamp(
                 src, listOf(
-                    "FIELD OPS · ${Api.istToday()}",
+                    "FIELD OPS - ${Api.istToday()}",
                     "IST ${Api.isoNow()}",
-                    String.format("GPS %.5f, %.5f · ±%.0fm", fix.first, fix.second, fix.third),
-                    "Plate: ${plate.ifEmpty { "—" }}",
-                    if (address.isNotEmpty()) "Near: $address" else "Near: —",
-                    "User: ${Prefs.username} · ${Prefs.deviceUUID.take(8)}"
+                    String.format("GPS %.5f, %.5f - %.0fm", fix.first, fix.second, fix.third),
+                    "Plate: ${plate.ifEmpty { "-" }}",
+                    if (address.isNotEmpty()) "Near: $address" else "Near: -",
+                    "User: ${Prefs.username} - ${Prefs.deviceUUID.take(8)}"
                 )
             )
             try {
@@ -321,7 +322,7 @@ class CameraOcrActivity : AppCompatActivity() {
                 Prefs.checkInProofAt = 0L
                 Prefs.pendingCheckoutId = ""
                 runOnUiThread {
-                    Toast.makeText(this, "Checked out · ${resp.optString("status", "Verified")}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Checked out - ${resp.optString("status", "Verified")}", Toast.LENGTH_LONG).show()
                     setResult(RESULT_OK, Intent().putExtra("checkout", true))
                     finish()
                 }
@@ -371,18 +372,36 @@ class CameraOcrActivity : AppCompatActivity() {
                 runOnUiThread {
                     Toast.makeText(
                         this,
-                        "Attendance recorded · ${resp.optString("status", "Verified")}",
+                        "Attendance recorded - ${resp.optString("status", "Verified")}",
                         Toast.LENGTH_LONG
                     ).show()
                     setResult(RESULT_OK, Intent().putExtra("attendance", true))
                     finish()
                 }
             } catch (e: Api.ApiError) {
-                val geo = (e.message ?: "").contains("Geofence", true) ||
-                        (e.message ?: "").contains("radius", true) ||
-                        (e.message ?: "").contains("roaming", true)
-                if (geo) {
-                    requestTransit(fix)
+                val msg = (e.message ?: "").lowercase()
+                val punchRejected = msg.contains("geofence", true) ||
+                        msg.contains("radius", true) ||
+                        msg.contains("roaming", true) ||
+                        msg.contains("accuracy", true)
+                if (punchRejected) {
+                    val distance = GeoMath.haversineMeters(fix.first, fix.second, Prefs.hubLat, Prefs.hubLng)
+                    runOnUiThread {
+                        androidx.appcompat.app.AlertDialog.Builder(this)
+                            .setTitle("Out of geofence")
+                            .setMessage(
+                                "Attendance proof is " + Math.round(distance) +
+                                " m from hub (allowed " + Math.round(Prefs.hubRadius) + " m). " +
+                                "Submit an on-duty (roaming) request for manager approval?"
+                            )
+                            .setPositiveButton("SUBMIT ON DUTY") { _, _ ->
+                                thread { requestTransit(fix) }
+                            }
+                            .setNegativeButton("CANCEL") { _, _ ->
+                                fail("Submit failed: ${e.message}")
+                            }
+                            .show()
+                    }
                 } else {
                     fail("Submit failed: ${e.message}")
                 }
@@ -397,29 +416,50 @@ class CameraOcrActivity : AppCompatActivity() {
         try {
             val resp = Api().requestTransit(
                 "PUNCH_IN", fix.first, fix.second, fix.third,
-                "Out-of-radius photo attendance · " +
+                "Out-of-radius photo attendance - " +
                         "${Math.round(GeoMath.haversineMeters(fix.first, fix.second, Prefs.hubLat, Prefs.hubLng))}m from hub"
             )
             Prefs.transitPending = true
-            Prefs.transitApproved = resp.optBoolean("alreadyApproved")
+            val alreadyApproved = resp.optBoolean("alreadyApproved")
+            val alreadyPending = resp.optBoolean("pending")
+            Prefs.transitApproved = alreadyApproved
             Prefs.checkInDate = Api.istToday()
-            if (!Prefs.transitApproved) {
-                val requestId = resp.optString("id")
-                val notifId = Notify.ID_ROAM_BASE + (Math.abs(requestId.hashCode()) % 100000)
-                Notify.alert(
-                    this, notifId,
-                    "Transit request - ${Prefs.username}",
-                    "Out-of-radius photo attendance · ${Math.round(GeoMath.haversineMeters(fix.first, fix.second, Prefs.hubLat, Prefs.hubLng))}m from hub. Approve for the whole day?",
-                    listOf(
-                        "APPROVE" to RoamingActionReceiver.pi(this, requestId, "APPROVED", notifId),
-                        "REJECT" to RoamingActionReceiver.pi(this, requestId, "REJECTED", notifId)
-                    )
-                )
+            if (alreadyApproved) Prefs.checkInProofAt = System.currentTimeMillis()
+            val requestId = resp.optString("requestId").ifEmpty { resp.optString("id") }
+            if (alreadyApproved) {
+                runOnUiThread {
+                    Toast.makeText(this, "Day pass already approved - attendance ready.", Toast.LENGTH_LONG).show()
+                    setResult(RESULT_OK, Intent().putExtra("attendance", true))
+                    finish()
+                }
+                return
             }
+            if (alreadyPending) {
+                runOnUiThread {
+                    Toast.makeText(this, "Transit request already pending for today.", Toast.LENGTH_LONG).show()
+                    setResult(RESULT_OK, Intent().putExtra("attendance", true))
+                    finish()
+                }
+                return
+            }
+            if (requestId.isEmpty()) {
+                fail("Roaming request returned no request id. Please retry.")
+                return
+            }
+            val notifId = Notify.ID_ROAM_BASE + (Math.abs(requestId.hashCode()) % 100000)
+            Notify.alert(
+                this, notifId,
+                "Transit request - ${Prefs.username}",
+                "Out-of-radius photo attendance - ${Math.round(GeoMath.haversineMeters(fix.first, fix.second, Prefs.hubLat, Prefs.hubLng))}m from hub. Approve for the whole day?",
+                listOf(
+                    "APPROVE" to RoamingActionReceiver.pi(this, requestId, "APPROVED", notifId),
+                    "REJECT" to RoamingActionReceiver.pi(this, requestId, "REJECTED", notifId)
+                )
+            )
             runOnUiThread {
                 Toast.makeText(
                     this,
-                    if (Prefs.transitApproved) "Day pass already approved — attendance ready."
+                    if (Prefs.transitApproved) "Day pass already approved - attendance ready."
                     else "Roaming request sent. Start Job unlocks after supervisor approval.",
                     Toast.LENGTH_LONG
                 ).show()
@@ -428,7 +468,8 @@ class CameraOcrActivity : AppCompatActivity() {
                 finish()
             }
         } catch (e: Exception) {
-            fail("Proof saved, but roaming request failed: ${e.message}")
+            android.util.Log.e("FieldOpsTransit", "Transit request failed: " + (e.message ?: e.javaClass.simpleName) + " :: " + e.javaClass.getName(), e)
+            fail("Proof saved, but roaming request failed: " + (e.message ?: e.javaClass.simpleName))
         }
     }
 
@@ -451,7 +492,7 @@ class CameraOcrActivity : AppCompatActivity() {
                 runOnUiThread {
                     Toast.makeText(
                         this,
-                        "Job ${job.optString("job_code", job.optString("id"))} started · timer running",
+                        "Job ${job.optString("job_code", job.optString("id"))} started - timer running",
                         Toast.LENGTH_LONG
                     ).show()
                     setResult(RESULT_OK, Intent().putExtra("job", true).putExtra("plate", plate).putExtra("odo", odo))
@@ -492,7 +533,7 @@ class CameraOcrActivity : AppCompatActivity() {
                 val msg = extractMsg
                 val count = extracted
                 runOnUiThread {
-                    Toast.makeText(this, "Job $code ended · end proof uploaded", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Job $code ended - end proof uploaded", Toast.LENGTH_LONG).show()
                     if (count > 0) {
                         androidx.appcompat.app.AlertDialog.Builder(this)
                             .setTitle("Parts extracted: $count")

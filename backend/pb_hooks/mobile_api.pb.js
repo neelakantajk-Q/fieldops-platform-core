@@ -145,10 +145,11 @@ routerAdd("POST", "/api/fieldops/roaming-approve", (c) => {
         }
 
         req.set("status", decision);
-        req.set("approved_by", user.id);
-        req.set("approved_at", new Date().toISOString());
-        req.set("approver_name", String(user.get("username") || ""));
-        $app.dao().saveRecord(req);
+          req.set("approved_by", user.id);
+          req.set("approved_at", new Date().toISOString());
+          req.set("approver_name", String(user.get("username") || ""));
+          req.set("decision_notes", String(body.remarks || ""));
+          $app.dao().saveRecord(req);
 
         return out(200, {
             success: true,
@@ -261,5 +262,52 @@ routerAdd("POST", "/api/fieldops/roaming-status", (c) => {
         return out(200, { success: true, approved: false, pending: false, istDate: istDate });
     } catch (err) {
         return out(500, { success: false, message: "roaming-status failed: " + (err && err.message ? err.message : err) });
+    }
+});
+
+/**
+ * POST /api/fieldops/notification-read { sessionToken, notificationId | ids }
+ * Marks one or many notifications READ. Session-token clients can't PATCH the
+ * notifications collection directly (403), so this guarded route does it.
+ */
+routerAdd("POST", "/api/fieldops/notification-read", (c) => {
+    const info = $apis.requestInfo(c);
+    const body = info.data || {};
+    const out = (code, obj) => c.json(code, obj);
+
+    try {
+        // inline session guard
+        let user = null;
+        const token = String(body.sessionToken || "").trim();
+        if (token) {
+            const found = $app.dao().findRecordsByFilter("users", "active_session_token = {:t}", "", 1, 0, { t: token });
+            if (found && found.length) {
+                const expiry = Number(found[0].get("session_expiry") || 0);
+                if (!(expiry > 0 && Date.now() > expiry)) user = found[0];
+            }
+        }
+        if (!user) return out(401, { success: false, code: "SESSION_INVALID", message: "Sign in again." });
+
+        const role = String(user.get("role") || "");
+        const isManager = ["Supervisor", "Moderator", "Administrator", "Platform"].indexOf(role) >= 0;
+        const ids = (Array.isArray(body.ids) && body.ids.length) ? body.ids : [body.notificationId];
+        let updated = 0;
+        for (let i = 0; i < ids.length; i++) {
+            const id = String(ids[i] || "").trim();
+            if (!id) continue;
+            try {
+                const rec = $app.dao().findRecordById("notifications", id);
+                const owner = String(rec.get("user_id") || "");
+                if (owner && owner !== user.id && !isManager) continue;
+                if (String(rec.get("status") || "") !== "READ") {
+                    rec.set("status", "READ");
+                    $app.dao().saveRecord(rec);
+                    updated++;
+                }
+            } catch (err) { /* skip missing/invalid ids */ }
+        }
+        return out(200, { success: true, updated: updated });
+    } catch (err) {
+        return out(500, { success: false, message: "notification-read failed: " + (err && err.message ? err.message : err) });
     }
 });

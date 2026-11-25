@@ -882,16 +882,49 @@ export async function pbCall(action, payload = {}) {
       };
     }
     case 'getNotifications': {
-      const res = await list('audit_logs', { sort: '-created', perPage: 20 });
-      return {
-        ok: true, unread: 0,
-        notifications: (res.items || []).map((r, i) => ({
-          id: r.id, notificationId: r.id, title: r.activity_type || 'Event',
-          message: r.details || '', at: r.timestamp || r.created, read: true
-        }))
-      };
+      const res = await list('notifications', {
+        filter: payload.unreadOnly === true ? "status = 'UNREAD'" : '',
+        sort: '-created',
+        perPage: Number(payload.limit) || 100
+      });
+      const items = res.items || [];
+      const notifications = items.map((r) => ({
+        id: r.id, notificationId: r.id, type: r.type || '',
+        title: r.title || r.type || 'Notification',
+        message: r.body || r.details || '', at: r.created || r.timestamp || '', read: String(r.status || '') !== 'UNREAD'
+      }));
+      return { ok: true, unread: notifications.filter((n) => !n.read).length, notifications };
     }
-    case 'markNotificationRead': case 'notificationAction': return { ok: true };
+    case 'markNotificationRead': {
+      const id = String(payload.notificationId || '');
+      const ids = Array.isArray(payload.notificationIds) ? payload.notificationIds : [];
+      if (id || ids.length) {
+        const { data, ok } = await pbFetch('/api/fieldops/notification-read', {
+          method: 'POST',
+          body: { sessionToken: currentToken(), notificationId: id, ids }
+        });
+        if (!ok) fail(data || {}, 'Could not mark the notification as read.');
+      }
+      return { ok: true };
+    }
+    case 'notificationAction': {
+      const id = String(payload.notificationId || '');
+      const action = String(payload.action || '').toUpperCase();
+      const remarks = String(payload.remarks || '');
+      if ((action === 'APPROVE' || action === 'REJECT') && id) {
+        const req = await findBy('roaming_requests', 'id', id);
+        if (req) {
+          const decision = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+          const { data, ok } = await pbFetch('/api/fieldops/roaming-approve', {
+            method: 'POST',
+            body: { sessionToken: currentToken(), requestId: req.id, decision, remarks }
+          });
+          if (!ok || !data || !data.success) fail(data || {}, 'Approval decision failed.');
+          return { ok: true, decision, remarks };
+        }
+      }
+      return { ok: true };
+    }
     case 'getWorkflows': {
       const res = await list('workflows', {});
       return {
