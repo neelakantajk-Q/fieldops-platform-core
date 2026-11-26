@@ -17,8 +17,9 @@ Last updated: **2026-11-26**
 | Render service | `fieldops-pb` · id `srv-dc1h5n2jnfac738ov5f0` |
 | Render repo / branch | `github.com/neelakantajk-Q/fieldops-platform-core` / `main` |
 | Render `autoDeploy` flag | `yes` but **GitHub pushes do NOT trigger deploys** (see §4) |
-| Live deploy at last check | `dep-dc1qrl3l550s73f9hbg0` @ commit `2418593` (2026-11-23) |
-| Source HEAD at last check | `9d8c2b9` (main == continue/android-overlay-cloud) |
+| Live deploy | `dep-dc43cph7lnhs73f9mhog` @ `061a82b` — **live** 2026-11-26 13:39 UTC |
+| Live asset hash | `assets/index-CLzfBf9E.css` + `assets/index-Nl_v_V23.js` |
+| Source HEAD | `b4eaafd` (zone-backfill fix — **deploy pending**) |
 | PocketBase version | 0.22.32 |
 | GitHub Pages | **Retired** (workflow still present; only `main` may deploy) |
 | PocketBase Cloud (`wzc6…pwz5`) | **Retired** (`paused`, health 502) |
@@ -98,8 +99,10 @@ trigger the Render deploy through the API. Only `main` should reach production.
 
 **Finding (2026-11-26):** the service is `autoDeploy: yes`, branch `main`, but the
 deploy history contains **only `api` and `manual` triggers — no GitHub-triggered
-deploys**. The last live deploy is commit `2418593` (2026-11-23). Newer commits on
-`main` (`515e1b0`, `e95571b`, `78cf80d`, `9d8c2b9`) never reached Render.
+deploys**. The last auto-triggered deploy was `2418593` (2026-11-23); commits
+`515e1b0`…`9d8c2b9` never reached Render. On 2026-11-26 we shipped `061a82b`
+with an **API-triggered** deploy (`dep-dc43cph7lnhs73f9mhog`, live). The
+`b4eaafd` zone-backfill fix still needs one more API deploy.
 
 **Implication:** pushing to GitHub alone is not enough. Trigger a deploy through
 the Render REST API after pushing. (Long-term fix: reconnect the GitHub webhook /
@@ -154,16 +157,24 @@ Keep-alive: point a free pinger (cron-job.org / UptimeRobot) at
 cd web-client; $env:VITE_SAME_ORIGIN_API="true"; npm run build; cd ..
 node --check backend/pb_hooks/api_fieldops.pb.js
 node --check backend/pb_migrations/1700000130_region_zone.js
+node --check backend/pb_migrations/1700000140_backfill_zones.js
 
 # 2. commit on a feature branch, then fast-forward main
 git add -A
 git commit -m "<message>"
-git push origin HEAD
-git checkout main; git merge --ff-only <branch>; git push origin main
+git push origin HEAD                    # feature branch
+git push origin HEAD:main               # fast-forward main (it is an ancestor)
 
-# 3. trigger Render + verify
-powershell -File scripts/verify_live.ps1   # (to be added, see §9)
+# 3. trigger Render + poll until live
+$key = (Select-String <ccc.txt> -Pattern 'rnd_[A-Za-z0-9]+').Matches[0].Value
+$h = @{ Authorization = "Bearer $key"; 'Content-Type' = 'application/json' }
+Invoke-RestMethod "https://api.render.com/v1/services/srv-dc1h5n2jnfac738ov5f0/deploys" `
+  -Method Post -Headers $h -Body '{"clearCache":"do_not_clear"}'
+# GET /v1/services/<id>/deploys/<deployId> until status = live
 ```
+
+Note: `regions.zone` backfill must query with a non-empty filter
+(`"id != ''"`); an empty filter returns no rows on PB 0.22.
 
 `git checkout main` / merge steps assume `main` is an ancestor of the feature
 branch (it is when the branch was cut from `main`).
@@ -191,18 +202,24 @@ branch (it is when the branch was cut from `main`).
 
 | Date | Change | Files | Commit | Verified |
 |---|---|---|---|---|
-| 2026-11-26 | Session 1: mapped Render architecture; found stale live deploy (`2418593`) and dead GitHub auto-deploy; created continuity files. | `PROJECT_STATE.md`, `AGENTS.md` | _(pending)_ | n/a |
-| 2026-11-26 | In-flight (pre-existing, uncommitted): backend `region-zone` + `alert-broadcast`, `regions.zone` migration, directory zone, TAT analytics; web Zone tree + broadcast modal, Performance/Team/Home renames + TAT. | `backend/pb_hooks/api_fieldops.pb.js`, `backend/pb_migrations/1700000130_region_zone.js`, `web-client/src/lib/pb.js`, `web-client/src/pages/Team.jsx`, `web-client/src/pages/Performance.jsx`, `web-client/src/mobile/Home.jsx`, `web-client/src/mobile/tree.js`, `web-client/src/nav.js` | _(pending)_ | build OK |
+| 2026-11-26 | Session 1: mapped Render architecture; found stale live deploy (`2418593`) and dead GitHub auto-deploy; created continuity files. | `PROJECT_STATE.md`, `AGENTS.md` | `061a82b` | n/a |
+| 2026-11-26 | Zone + broadcast + TAT: backend `region-zone` + `alert-broadcast`, `regions.zone` migration, directory zone, TAT analytics; web Zone tree + broadcast modal, Performance/Team/Home renames; `reports_to` on create; company-scoped region-zone. | `backend/pb_hooks/api_fieldops.pb.js`, `backend/pb_migrations/1700000130_region_zone.js`, `web-client/src/lib/pb.js`, `web-client/src/pages/Team.jsx`, `web-client/src/pages/Performance.jsx`, `web-client/src/mobile/Home.jsx`, `web-client/src/mobile/tree.js`, `web-client/src/nav.js` | `061a82b` | build OK; deploy live `dep-dc43cph7lnhs73f9mhog` |
+| 2026-11-26 | Verified live: new assets (`index-CLzfBf9E.css`, `index-Nl_v_V23.js`), health 200, admin login, directory (12 users/4 regions), `region-zone` updated 4 (zones North/South/South/East), `alert-broadcast` empty-message 400. | — | `061a82b` | live |
+| 2026-11-26 | Fixed zone backfill: 130 used an empty filter (0 rows); added idempotent 140 safety-net. `node --check` OK. Redeploy pending. | `backend/pb_migrations/1700000130_region_zone.js`, `backend/pb_migrations/1700000140_backfill_zones.js` | `b4eaafd` | syntax OK; deploy pending |
 
 ---
 
 ## 9. Resume point (next steps)
 
-1. Review/finish the in-flight Zone + broadcast + TAT work; add `reports_to` on
-   `admin-user` create for parity.
-2. Build, commit, fast-forward `main`, push.
-3. Trigger a Render deploy via the API (§4) and verify the live asset hash +
-   `/api/fieldops/health` + login.
-4. Add `scripts/verify_live.ps1`, retire the GitHub Pages workflow, and update
-   `KEYS_AND_ACCESS.md` / `HANDOFF.md` / `NEXT_SESSION.md` to point here.
-5. Verify the live app end-to-end and record the result here.
+1. **Redeploy `b4eaafd`** via the Render API (§4). Poll until `live`, then confirm
+   `directory` still returns the 4 zones (proves 140 backfilled after restore).
+2. Add `scripts/verify_live.ps1` (asset hash + health + admin login + directory).
+3. Retire the GitHub Pages workflow; align `KEYS_AND_ACCESS.md`, `HANDOFF.md`,
+   `NEXT_SESSION.md` to the Render-canonical setup.
+4. Confirm the Drive backup env vars are set and a keep-alive pinger is active.
+5. Android: the bundled portal (`app/android/.../assets/portal`) is stale vs the
+   Render build — rebuild the portal bundle/APK when mobile parity is needed.
+6. Real accounts vs demo logins: decide before sharing the URL widely.
+
+**Demo data note:** the 4 live regions now have zones (North, South×2, East).
+If a restore reverts them, migration 140 re-derives zones from region names.
