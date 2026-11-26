@@ -17,9 +17,9 @@ Last updated: **2026-11-26**
 | Render service | `fieldops-pb` · id `srv-dc1h5n2jnfac738ov5f0` |
 | Render repo / branch | `github.com/neelakantajk-Q/fieldops-platform-core` / `main` |
 | Render `autoDeploy` flag | `yes` but **GitHub pushes do NOT trigger deploys** (see §4) |
-| Live deploy | `dep-dc477sgu01pc73f36mgg` @ `42f8d51` — **live** 2026-11-26 18:02 UTC |
-| Live asset hash | `assets/index-BBadGAa4.css` + `assets/index-CdyulsNI.js` |
-| Source HEAD | `42f8d51` |
+| Live deploy | `dep-dc47kdtg1s2s73diic8g` @ `4458721` — **live** 2026-11-26 18:28 UTC |
+| Live asset hash | `assets/index-BBadGAa4.css` + `assets/index-IxRGVvck.js` |
+| Source HEAD | `4458721` |
 | PocketBase version | 0.22.32 |
 | GitHub Pages | **Retired** (workflow still present; only `main` may deploy) |
 | PocketBase Cloud (`wzc6…pwz5`) | **Retired** (`paused`, health 502) |
@@ -210,13 +210,14 @@ branch (it is when the branch was cut from `main`).
 | 2026-11-26 | Redeployed `b4eaafd` + docs (`eee51e5`). Verified health 200, admin login, zones persisted after restore (North; South-2=South; South-1=South; East), assets unchanged. | `PROJECT_STATE.md` | `eee51e5` | live `dep-dc4526bl550s73879kn0` |
 | 2026-11-26 | Mobile tabs: Home first, Jobs, scan FAB, Explore replacing Alerts, Profile; rebuilt portal bundle (`index-CdyulsNI.js`) and installed fresh APK on `7d34f6121222`. | `web-client/src/mobile/MobileShell.jsx`, Android portal assets | `42f8d51` | build OK; APK installed; live `dep-dc477sgu01pc73f36mgg` |
 | 2026-11-26 | Attendance/proof fixes: date-range `getAttendance`, 30-day mobile history, hub roster with attendance badges, proof-pending card → native checkout, mandatory photo checkout for pending auto rows, bubble day-pass toast/request flow with real GPS. | `web-client/src/lib/pb.js`, `web-client/src/mobile/tree.js`, `web-client/src/mobile/Home.jsx`, `PortalActivity.kt`, `CameraOcrActivity.kt`, `OverlayBubbleService.kt` | `42f8d51` | `npm run build` OK; `gradlew assembleDebug` OK; APK installed; live `dep-dc477sgu01pc73f36mgg` |
+| 2026-11-26 | Made attendance history visible by default: mobile Attendance opens on `History 30d`; desktop Attendance has Today/7 days/30 days range selector. Rebuilt portal bundle (`index-IxRGVvck.js`) and installed fresh APK on `7d34f6121222`. | `web-client/src/mobile/tree.js`, `web-client/src/pages/Attendance.jsx`, Android portal assets | `4458721` | `npm run build` OK; `gradlew assembleDebug` OK; APK installed; live `dep-dc47kdtg1s2s73diic8g` |
 
 ---
 
 ## 9. Resume point (next steps)
 
-1. Log in on the device (`admin` / `admin`) and visually verify the new Home/Explore tab bar, Attendance hub roster/history, proof-pending card and bubble day-pass toast flow.
-2. ~~Commit/push and trigger a Render deploy.~~ **Done** (`42f8d51`, live `dep-dc477sgu01pc73f36mgg`, bundle `index-CdyulsNI.js`).
+1. Log in on the device (`admin` / `admin`) and visually verify the new Home/Explore tab bar, Attendance `History 30d` default view, hub roster, proof-pending card and bubble day-pass toast flow.
+2. ~~Commit/push and trigger a Render deploy.~~ **Done** (`4458721`, live `dep-dc47kdtg1s2s73diic8g`, bundle `index-IxRGVvck.js`).
 3. Add `scripts/verify_live.ps1` (asset hash + health + admin login + directory).
 4. Retire the GitHub Pages workflow; align `KEYS_AND_ACCESS.md`, `HANDOFF.md`, `NEXT_SESSION.md` to the Render-canonical setup.
 5. Confirm the Drive backup env vars are set and a keep-alive pinger is active.
