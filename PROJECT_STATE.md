@@ -17,9 +17,9 @@ Last updated: **2026-11-26**
 | Render service | `fieldops-pb` · id `srv-dc1h5n2jnfac738ov5f0` |
 | Render repo / branch | `github.com/neelakantajk-Q/fieldops-platform-core` / `main` |
 | Render `autoDeploy` flag | `yes` but **GitHub pushes do NOT trigger deploys** (see §4) |
-| Live deploy | `dep-dc43cph7lnhs73f9mhog` @ `061a82b` — **live** 2026-11-26 13:39 UTC |
+| Live deploy | `dep-dc43ertg1s2s73d74thg` @ `eee51e5` — **live** 2026-11-26 13:44 UTC |
 | Live asset hash | `assets/index-CLzfBf9E.css` + `assets/index-Nl_v_V23.js` |
-| Source HEAD | `b4eaafd` (zone-backfill fix — **deploy pending**) |
+| Source HEAD | `eee51e5` (+ docs-only commits; no redeploy needed) |
 | PocketBase version | 0.22.32 |
 | GitHub Pages | **Retired** (workflow still present; only `main` may deploy) |
 | PocketBase Cloud (`wzc6…pwz5`) | **Retired** (`paused`, health 502) |
@@ -205,14 +205,14 @@ branch (it is when the branch was cut from `main`).
 | 2026-11-26 | Session 1: mapped Render architecture; found stale live deploy (`2418593`) and dead GitHub auto-deploy; created continuity files. | `PROJECT_STATE.md`, `AGENTS.md` | `061a82b` | n/a |
 | 2026-11-26 | Zone + broadcast + TAT: backend `region-zone` + `alert-broadcast`, `regions.zone` migration, directory zone, TAT analytics; web Zone tree + broadcast modal, Performance/Team/Home renames; `reports_to` on create; company-scoped region-zone. | `backend/pb_hooks/api_fieldops.pb.js`, `backend/pb_migrations/1700000130_region_zone.js`, `web-client/src/lib/pb.js`, `web-client/src/pages/Team.jsx`, `web-client/src/pages/Performance.jsx`, `web-client/src/mobile/Home.jsx`, `web-client/src/mobile/tree.js`, `web-client/src/nav.js` | `061a82b` | build OK; deploy live `dep-dc43cph7lnhs73f9mhog` |
 | 2026-11-26 | Verified live: new assets (`index-CLzfBf9E.css`, `index-Nl_v_V23.js`), health 200, admin login, directory (12 users/4 regions), `region-zone` updated 4 (zones North/South/South/East), `alert-broadcast` empty-message 400. | — | `061a82b` | live |
-| 2026-11-26 | Fixed zone backfill: 130 used an empty filter (0 rows); added idempotent 140 safety-net. `node --check` OK. Redeploy pending. | `backend/pb_migrations/1700000130_region_zone.js`, `backend/pb_migrations/1700000140_backfill_zones.js` | `b4eaafd` | syntax OK; deploy pending |
+| 2026-11-26 | Fixed zone backfill: 130 used an empty filter (0 rows); added idempotent 140 safety-net. `node --check` OK. | `backend/pb_migrations/1700000130_region_zone.js`, `backend/pb_migrations/1700000140_backfill_zones.js` | `b4eaafd` | syntax OK; deploy pending |
+| 2026-11-26 | Redeployed `b4eaafd` + docs (`eee51e5`). Verified health 200, admin login, zones persisted after restore (North; South-2=South; South-1=South; East), assets unchanged. | `PROJECT_STATE.md` | `eee51e5` | live `dep-dc43ertg1s2s73d74thg` |
 
 ---
 
 ## 9. Resume point (next steps)
 
-1. **Redeploy `b4eaafd`** via the Render API (§4). Poll until `live`, then confirm
-   `directory` still returns the 4 zones (proves 140 backfilled after restore).
+1. ~~Redeploy the zone-backfill fix.~~ **Done** (`eee51e5` live); zones persist.
 2. Add `scripts/verify_live.ps1` (asset hash + health + admin login + directory).
 3. Retire the GitHub Pages workflow; align `KEYS_AND_ACCESS.md`, `HANDOFF.md`,
    `NEXT_SESSION.md` to the Render-canonical setup.
