@@ -3,7 +3,7 @@
  *
  * Locked scheme (2026-11-15, option A):
  *   job       JC-{YY}-{ENG4}-{NNNN}          per engineer + IST year
- *   complaint CMP-{YY}-{REG3}-{HUB4}-{NNNN}  per hub + IST year
+ *   complaint J{YY}{INITIALS}{NNNN}          per technician initials + IST year
  *   capture   CAP-{YY}-{ENG4}-{NNNN}         per engineer + IST year
  *   expense   EXP-{YY}-{NNNN}                per company + IST year
  *

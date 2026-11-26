@@ -75,7 +75,7 @@ onModelBeforeCreate((e) => {
         }
 
         // Internal auto-complaints (created by the job hook) carry their
-        // CMP number already; never re-allocate for them.
+        // J-number already; never re-allocate for them.
         if (String(rec.get("complaint_no") || "").trim() && String(rec.get("status") || "") === "JOB_CREATED") return;
 
         const ist = istNow();
@@ -89,18 +89,38 @@ onModelBeforeCreate((e) => {
         if (!hubId) throw new BadRequestError("Hub is required for complaint numbering.");
         const hub = dao.findRecordById("service_hubs", hubId);
 
-        let regionId = String(rec.get("region_id") || hub.get("region_id") || "");
-        let region = null;
-        if (regionId) { try { region = dao.findRecordById("regions", regionId); } catch (err) { region = null; } }
-        const regCode = region
-            ? ensureShortCode("regions", region, region.get("region_code") || region.get("name"), 3)
-            : "UNK";
-        const hubCode = ensureShortCode("service_hubs", hub, hub.get("hub_code") || hub.get("name"), 4);
+        // Technician for initials: reported_by if present, else the first active
+        // technician in the hub. Standalone complaints still number J{YY}{INITIALS}{NNNN}.
+        let tech = null;
+        const reportedBy = String(rec.get("reported_by") || "");
+        if (reportedBy) { try { tech = dao.findRecordById("users", reportedBy); } catch (err) { tech = null; } }
+        if (!tech) {
+            try {
+                const cands = dao.findRecordsByFilter("users",
+                    "hub_id = {:h} && role = 'Technician' && status = 'Active'", "", 1, 0, { h: hubId });
+                tech = (cands && cands.length) ? cands[0] : null;
+            } catch (err) { tech = null; }
+        }
+        const initialsOf = (u) => {
+            if (!u) return "XX";
+            const fn = String(u.get("first_name") || "").trim();
+            const ln = String(u.get("last_name") || "").trim();
+            let ini = "";
+            if (fn && ln) ini = (fn.charAt(0) + ln.charAt(0)).toUpperCase().replace(/[^A-Z]/g, "");
+            if (ini.length < 2) {
+                const base = String(u.get("short_code") || u.get("user_code") || u.get("username") || "")
+                    .toUpperCase().replace(/[^A-Z]/g, "");
+                ini = (base + "XX").slice(0, 2);
+            }
+            return ini.slice(0, 2);
+        };
+        const techInitials = initialsOf(tech);
 
-        // Client-sent numbers are ignored; allocation is server-only.
+        // Client-sent numbers are ignored; allocation is server-only and shared
+        // per initials+year so duplicate initials never collide.
         const y = ist.slice(0, 4);
-        const n = allocate("cmp:" + y + ":" + regCode + ":" + hubCode, "complaints:" + regCode + ":" + hubCode, ist.slice(0, 10));
-        rec.set("complaint_no", "CMP-" + y.slice(2, 4) + "-" + regCode + "-" + hubCode + "-" + pad(n, 4));
+        const n = allocate("cmp2:" + y + ":" + techInitials, "complaints:" + techInitials, ist.slice(0, 10));
+        rec.set("complaint_no", "J" + y.slice(2, 4) + techInitials + pad(n, 4));
 
         if (!rec.get("company_id")) rec.set("company_id", hub.get("company_id"));
     } catch (err) {

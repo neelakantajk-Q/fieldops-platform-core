@@ -47,7 +47,7 @@ class PortalActivity : AppCompatActivity() {
 
     companion object {
         const val ASSET_PORTAL = "file:///android_asset/portal/index.html"
-        const val LIVE_PORTAL = "https://neelakantajk-q.github.io/fieldops-platform-core/"
+        const val LIVE_PORTAL = "https://fieldops-pb.onrender.com/"
         private const val REQ_MIC = 9101
         private const val REQ_ATTN = 9201
         private const val REQ_JOB = 9202
@@ -55,6 +55,7 @@ class PortalActivity : AppCompatActivity() {
         private val TRUSTED_HOSTS = setOf(
             "neelakantajk-q.github.io",
             "github.io",
+            "fieldops-pb.onrender.com",
             "script.google.com",
             "script.googleusercontent.com",
             "accounts.google.com"

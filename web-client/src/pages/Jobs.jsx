@@ -4,6 +4,7 @@ import {
   Btn, Card, Empty, Field, Modal, PageHeader, Spinner, Table, useAsync, useToast,
   VoiceTextInput, VoiceTextarea, SmartFillButton
 } from '../components.jsx';
+import { JobDetail } from '../components/JobDetail.jsx';
 import { clientRequestId } from '../lib/utils.js';
 
 const STATUSES = ['InProgress', 'Completed', 'Delayed', 'Interrupted', 'Cancelled'];
@@ -199,8 +200,9 @@ export default function Jobs({ session, checkedIn }) {
         actions={<Btn size="sm" onClick={() => { setEditing(null); setModalOpen(true); }}>New job</Btn>}
       />
 
-      <Card pad={false}
-        actions={
+      <div className="jobs-layout">
+      <Card pad={false} actions={
+
           <div className="row">
             <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: 150 }}>
               <option value="">All statuses</option>
@@ -218,10 +220,49 @@ export default function Jobs({ session, checkedIn }) {
         {error ? <div className="hint-banner" style={{ margin: 16 }}>{error.message}</div> : null}
         {loading ? <Spinner label="Loading job cards…" /> : (
           <div style={{ padding: 16 }}>
-            <Table columns={columns} rows={rows} empty="No job cards." rowKey={(r) => r.jobId} />
+            {rows.length ? (
+              <div className="jobs-list">
+                {rows.map((r) => (
+                  <button key={r.jobId} type="button" className={`job-row ${selected && String(selected.jobId) === String(r.jobId) ? 'active' : ''}`} onClick={() => setSelectedId(String(r.jobId))}>
+                    <div className="job-row-top">
+                      <strong>{r.jobId}</strong>
+                      <span className={`badge ${statusTone(r.status)}`}>{r.status}</span>
+                    </div>
+                    <div className="job-row-sub">{[r.vehicleNo, r.client].filter(Boolean).join(' · ') || 'Unassigned job'}</div>
+                    <div className="job-row-meta mono small">{r.complaintNo || '—'} · {r.assignedUserId || '—'}</div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <Empty>No job cards.</Empty>
+            )}
           </div>
         )}
       </Card>
+
+      {selected ? (
+        <Card
+          title={`Job ${selected.jobId}`}
+          actions={
+            <div className="row" style={{ gap: 6 }}>
+              <Btn size="sm" variant="ghost" onClick={() => { setEditing(selected); setModalOpen(true); }}>Edit</Btn>
+              <Btn size="sm" variant="ghost" onClick={() => setSelectedId('')}>Close</Btn>
+            </div>
+          }
+        >
+          <JobDetail
+            task={selected}
+            now={now}
+            checkedIn={checkedIn}
+            onEdit={(t) => { setEditing(t); setModalOpen(true); }}
+            onHold={(t) => requestHold(t)}
+            onClose={() => setSelectedId('')}
+            onOpenTech={(techId) => { try { onNavigate?.('person360'); } catch (_) { } }}
+            onOpenVehicle={(vehId) => { try { onNavigate?.('vehicles'); } catch (_) { } }}
+          />
+        </Card>
+      ) : null}
+      </div>
 
       <JobModal
         open={modalOpen}
@@ -238,7 +279,7 @@ export default function Jobs({ session, checkedIn }) {
 function JobModal({ open, task, session, checkedIn, onClose, onSaved }) {
   const toast = useToast();
   const editing = Boolean(task && task.jobId);
-  const [form, setForm] = useState({});
+  const [form, setForm] = useState({ remarks: task?.remarks || '', endOdometer: task && task.endOdometer != null ? String(task.endOdometer) : '' });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
 
@@ -314,12 +355,16 @@ function JobModal({ open, task, session, checkedIn, onClose, onSaved }) {
         <Field label="Checklist"><input value={value('checklist')} onChange={set('checklist')} placeholder="Comma separated" /></Field>
         <Field label="Parts used"><input value={value('partsUsed')} onChange={set('partsUsed')} /></Field>
         <Field label="Service notes"><VoiceTextarea value={value('serviceNotes')} onChange={set('serviceNotes')} rows="2" /></Field>
+        <Field label="Remarks"><VoiceTextarea value={value('remarks')} onChange={set('remarks')} rows="2" /></Field>
         <Field label="Resolution notes"><VoiceTextarea value={value('resolutionNotes')} onChange={set('resolutionNotes')} rows="2" /></Field>
       </div>
       {editing ? (
         <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: 'var(--m-card, rgba(255,255,255,0.06))' }}>
           <div className="small muted" style={{ marginBottom: 8, fontWeight: 700 }}>Job timing</div>
           <div className="row" style={{ gap: 16, flexWrap: 'wrap' }}>
+            <div>
+              <Field label="End odo (km)"><input type="number" value={value('endOdometer')} onChange={set('endOdometer')} /></Field>
+            </div>
             <div><span className="muted small">Start</span><strong style={{ display: 'block' }}>{task.startTime ? fmtAt(task.startTime) : 'N/A'}</strong></div>
             <div><span className="muted small">End</span><strong style={{ display: 'block' }}>{task.endTime ? fmtAt(task.endTime) : task.turnaroundMinutes ? fmtMinutes(task.turnaroundMinutes) : 'N/A'}</strong></div>
             <div><span className="muted small">Elapsed</span><strong style={{ display: 'block' }}>{elapsed(task, Date.now())}</strong></div>

@@ -63,6 +63,9 @@ routerAdd("POST", "/api/fieldops/login", (c) => {
             id: user.id,
             userCode: user.get("user_code"),
             username: user.get("username"),
+            firstName: user.get("first_name"),
+            lastName: user.get("last_name"),
+            fullName: (String(user.get("first_name") || "").trim() + " " + String(user.get("last_name") || "").trim()).trim() || String(user.get("username") || ""),
             role: user.get("role"),
             scope: user.get("scope"),
             hubId: user.get("hub_id"),
@@ -159,6 +162,9 @@ routerAdd("POST", "/api/fieldops/directory", (c) => {
         company_id: r.get("company_id"),
         userCode: r.get("user_code"),
         username: r.get("username"),
+        firstName: r.get("first_name"),
+        lastName: r.get("last_name"),
+        fullName: (String(r.get("first_name") || "").trim() + " " + String(r.get("last_name") || "").trim()).trim() || String(r.get("username") || ""),
         role: r.get("role"),
         scope: r.get("scope"),
         status: r.get("status"),
@@ -242,6 +248,8 @@ routerAdd("POST", "/api/fieldops/admin-user", (c) => {
             u.set("hub_id", data.hubId || "");
             u.set("region_id", data.regionId || "");
             u.set("reports_to", data.reportsTo || "");
+            u.set("first_name", String(data.firstName || "").trim());
+            u.set("last_name", String(data.lastName || "").trim());
             u.set("phone_number", data.phone || "");
             u.set("module_rights", data.moduleRights || "Tasks,Attendance,Vehicles");
             db.saveRecord(u); // seat_limit.pb.js may reject the 51st user here
@@ -256,6 +264,8 @@ routerAdd("POST", "/api/fieldops/admin-user", (c) => {
             if (data.hubId !== undefined) u.set("hub_id", data.hubId);
             if (data.regionId !== undefined) u.set("region_id", data.regionId);
             if (data.reportsTo !== undefined) u.set("reports_to", data.reportsTo);
+            if (data.firstName !== undefined) u.set("first_name", String(data.firstName || "").trim());
+            if (data.lastName !== undefined) u.set("last_name", String(data.lastName || "").trim());
             if (data.phone !== undefined) u.set("phone_number", data.phone);
             if (data.status) u.set("status", data.status);
             if (data.moduleRights) u.set("module_rights", data.moduleRights);

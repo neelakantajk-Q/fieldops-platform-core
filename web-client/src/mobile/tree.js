@@ -96,12 +96,15 @@ export const MODULES = [
       subtitle: [t.vehicleNo, t.client].filter(Boolean).join(' · ') || 'Unassigned job',
       badge: { label: t.status || '—', tone: jobTone(t.status) },
       meta: [elapsed(t), t.assignedUserId].filter(Boolean),
+      task: t,
       facts: [
         { label: 'Vehicle', value: t.vehicleNo || '—' },
         { label: 'Client', value: t.client || '—' },
-        { label: 'Technician', value: t.assignedUserId || '—' },
+        { label: 'Technician', value: t.assignedUserName || t.assignedUserId || '—' },
         { label: 'Complaint', value: t.complaintNo || '—' },
-        { label: 'Plate source', value: t.plateSource || '—' },
+        { label: 'Start', value: t.startTime || '—' },
+        { label: 'Stop', value: t.endTime || 'In progress' },
+        { label: 'Odo', value: [t.startOdometer, t.endOdometer].filter((v) => v != null).join(' -> ') || '—' },
         { label: 'Elapsed', value: elapsed(t) || '—' }
       ]
     })

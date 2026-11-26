@@ -106,7 +106,8 @@ function UserModal({ user, session, onClose, onSaved }) {
   const isNew = Boolean(user.new);
   const [form, setForm] = useState({
     username: user.username || '',
-    fullName: user.fullName || '',
+    firstName: user.firstName || user.fullName || '',
+    lastName: user.lastName || '',
     role: user.role || 'Technician',
     hub: user.hub || session.hub || '',
     region: user.region || '',
@@ -171,7 +172,8 @@ function UserModal({ user, session, onClose, onSaved }) {
       footer={<><Btn variant="ghost" onClick={onClose}>Cancel</Btn><Btn onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save user'}</Btn></>}>
       <div className="form-grid">
         <Field label="Username *"><input value={form.username} onChange={set('username')} readOnly={!isNew} /></Field>
-        <Field label="Full name"><input value={form.fullName} onChange={set('fullName')} /></Field>
+        <Field label="First name"><input value={form.firstName} onChange={set('firstName')} /></Field>
+        <Field label="Last name"><input value={form.lastName} onChange={set('lastName')} /></Field>
         <Field label="Role *" hint={`${form.role} scope = ${SCOPES[form.role]}`}>
           <select value={form.role} onChange={set('role')}>
             {(session.role === 'Administrator' ? ROLE_OPTIONS : ROLE_OPTIONS.filter((r) => r === 'Technician')).map((r) => <option key={r}>{r}</option>)}

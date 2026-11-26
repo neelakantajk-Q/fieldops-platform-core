@@ -156,6 +156,12 @@ function num(v) {
   return isFinite(n) ? n : null;
 }
 
+function personName(u) {
+  if (!u) return '';
+  const name = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+  return name || u.username || '';
+}
+
 function jobProof(collection, recordId, field) {
   const filename = String(field || '');
   return filename ? fileUrl(collection, recordId, filename) : '';
@@ -186,6 +192,10 @@ function docketRow(d) {
 
 function joinStatus(task) {
   const vehicle = (task.expand && task.expand.vehicle_id) || {};
+  const tech = (task.expand && task.expand.technician_id) || {};
+  const clientRec = (task.expand && task.expand.client_id) || {};
+  const complaintRec = (task.expand && task.expand.complaint_id) || {};
+  const hubRec = (task.expand && task.expand.hub_id) || {};
   const recordId = task.id || '';
   return {
     recordId,
@@ -193,10 +203,23 @@ function joinStatus(task) {
     complaintNo: task.complaint_no || '',
     jobType: task.job_type || 'FIELD_SERVICE',
     vehicleNo: vehicle.plate_no || '',
+    vehicleId: vehicle.id || task.vehicle_id || '',
     vin: task.vin || vehicle.vin || '',
+    vehicleMake: vehicle.make || '',
     vehicleModel: task.vehicle_model || vehicle.model || '',
-    client: (task.expand && task.expand.client_id && task.expand.client_id.name) || '',
-    assignedUserId: (task.expand && task.expand.technician_id && task.expand.technician_id.username) || '',
+    client: clientRec.name || '',
+    clientId: clientRec.id || task.client_id || '',
+    clientName: clientRec.name || '',
+    clientPhone: clientRec.contact_phone || clientRec.phone || '',
+    clientAddress: clientRec.address || '',
+    assignedUserId: tech.username || '',
+    assignedUserName: personName(tech),
+    technicianId: tech.id || task.technician_id || '',
+    technicianName: personName(tech),
+    technicianPhone: tech.phone_number || '',
+    technicianRole: tech.role || '',
+    hubId: hubRec.id || task.hub_id || '',
+    hubName: hubRec.name || '',
     status: TO_LEGACY[task.status] || task.status,
     rawStatus: task.status || '',
     startTime: task.job_started_at || '',
@@ -226,6 +249,13 @@ function joinStatus(task) {
     updatedBy: '', updatedByName: '', updatedAt: task.updated, version: task.updated ? 2 : 1,
     holdToStopMinutes: Number(task.hold_to_stop_minutes) || 0,
     partsExtractStatus: task.parts_extract_status || 'NONE',
+    remarks: task.remarks || '',
+    complaintId: complaintRec.id || task.complaint_id || '',
+    complaintStatus: complaintRec.status || '',
+    complaintDescription: complaintRec.description || '',
+    complaintReportedAt: complaintRec.reported_at || '',
+    createdAt: task.created || '',
+    updatedAt: task.updated || '',
     dockets: [],
     docketNo: '',
     holdStartedAt: task.status === 'ON_HOLD' ? (task.updated || '') : ''
@@ -275,12 +305,16 @@ export async function pbLogin(username, password, base, force) {
   const rights = String(u.moduleRights || '')
     .split(',').map((s) => s.trim()).filter(Boolean);
 
+  const fullName = [u.firstName, u.lastName].map((s) => String(s || '').trim()).filter(Boolean).join(' ') || u.username || '';
+
   return {
     ok: true,
     sessionToken: data.sessionToken,
     userId: u.id,
     username: u.username,
-    fullName: u.userCode && u.username ? u.username : (u.username || ''),
+    firstName: u.firstName || '',
+    lastName: u.lastName || '',
+    fullName,
     businessCategory: '',
     role: u.role,
     scope: u.scope || 'SELF',
@@ -315,7 +349,7 @@ export async function pbCall(action, payload = {}) {
       if (payload.status && TO_PB[payload.status]) f.push(`status = "${TO_PB[payload.status]}"`);
       const q = String(payload.query || payload.search || '').trim();
       if (q) f.push(`(job_code ~ "${esc(q)}" || service_notes ~ "${esc(q)}" || plate_source ~ "${esc(q)}")`);
-      const res = await list('job_cards', { filter: f.join(' && '), expand: 'vehicle_id,technician_id,client_id', sort: '-created' });
+      const res = await list('job_cards', { filter: f.join(' && '), expand: 'vehicle_id,technician_id,client_id,complaint_id,hub_id', sort: '-created' });
       let dockets = [];
       try {
         const dk = await list('part_dockets', { filter: 'job_card_id != ""', sort: 'docket_date', perPage: 500 });
@@ -356,6 +390,7 @@ export async function pbCall(action, payload = {}) {
         service_notes: payload.serviceNotes || '',
         checklist: payload.checklist || '',
         parts_used: payload.partsUsed || '',
+        remarks: payload.remarks || '',
         plate_source: payload.plateSource || 'MANUAL'
       });
       if (payload.rootCause || payload.resolutionNotes) {
@@ -380,6 +415,12 @@ export async function pbCall(action, payload = {}) {
       if (payload.delayCategory !== undefined) body.delay_category = payload.delayCategory;
       if (payload.delayReason !== undefined) body.delay_reason = payload.delayReason;
       if (payload.serviceNotes !== undefined) body.service_notes = payload.serviceNotes;
+      if (payload.checklist !== undefined) body.checklist = payload.checklist;
+      if (payload.partsUsed !== undefined) body.parts_used = payload.partsUsed;
+      if (payload.endOdometer !== undefined && payload.endOdometer !== null && String(payload.endOdometer).trim() !== '') {
+        body.end_odometer = Number(payload.endOdometer);
+      }
+      if (payload.remarks !== undefined) body.remarks = payload.remarks;
       const rec = await patch('job_cards', job.id, body);
       return { ok: true, job: joinStatus(Object.assign(rec, { expand: {} })) };
     }
@@ -715,7 +756,7 @@ export async function pbCall(action, payload = {}) {
       const mods = (d.users || []).filter((u) => u.role === 'Moderator');
       const sups = (d.users || []).filter((u) => u.role === 'Supervisor');
       const node = (u) => ({
-        userId: u.id, username: u.username, fullName: u.username,
+        userId: u.id, username: u.username, firstName: u.firstName || '', lastName: u.lastName || '', fullName: u.fullName || u.username,
         role: u.role, hub: ((d.hubs || []).find((h) => h.id === u.hubId) || {}).name || '',
         region: ((d.regions || []).find((r) => r.id === u.regionId) || {}).name || '',
         regionZone: ((d.regions || []).find((r) => r.id === u.regionId) || {}).zone || '',
@@ -764,7 +805,8 @@ export async function pbCall(action, payload = {}) {
       const d = await directory();
       return { ok: true, canEditGeofence: Boolean(d.canEditGeofence), actor: d.actor || null, users: (d.users || []).map((u) => ({
         id: u.id, userId: u.id, userCode: u.userCode, username: u.username,
-        fullName: u.username, role: u.role, hub: ((d.hubs || []).find((h) => h.id === u.hubId) || {}).name || '',
+        firstName: u.firstName || '', lastName: u.lastName || '',
+        fullName: u.fullName || u.username, role: u.role, hub: ((d.hubs || []).find((h) => h.id === u.hubId) || {}).name || '',
         hubId: u.hubId || '',
         region: ((d.regions || []).find((r) => r.id === u.regionId) || {}).name || '',
         regionId: u.regionId || '',
@@ -1001,6 +1043,7 @@ export async function pbCall(action, payload = {}) {
           passwordHash: (await sha256Hex(payload.password || 'changeme')).toLowerCase(),
           user: {
             username: payload.username, role: payload.role, phone: payload.phone,
+            firstName: payload.firstName, lastName: payload.lastName,
             moduleRights: payload.moduleRights,
             hubId: hub ? hub.id : '', regionId: region ? region.id : '',
             scope: payload.scope
@@ -1017,6 +1060,8 @@ export async function pbCall(action, payload = {}) {
       if (payload.hub && !hub) throw new Error(`Unknown hub "${payload.hub}".`);
       if (payload.region && !region) throw new Error(`Unknown region "${payload.region}".`);
       const user = { role: payload.role, phone: payload.phone, status: payload.status };
+      if (payload.firstName !== undefined) user.firstName = payload.firstName;
+      if (payload.lastName !== undefined) user.lastName = payload.lastName;
       if (payload.hub !== undefined) user.hubId = hub ? hub.id : '';
       if (payload.region !== undefined) user.regionId = region ? region.id : '';
       if (payload.reportsTo !== undefined) user.reportsTo = payload.reportsTo;

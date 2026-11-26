@@ -2,7 +2,7 @@
  * PocketBase Hook (0.22.x JSVM): server-authoritative job numbering.
  *
  *   job       JC-{YY}-{ENG4}-{NNNN}          per engineer + IST year
- *   complaint CMP-{YY}-{REG3}-{HUB4}-{NNNN}  per hub + IST year
+ *   complaint J{YY}{INITIALS}{NNNN}           per technician initials + IST year
  *
  * Canonical 0.22 patterns only (mirrors seat_limit.pb.js / geofence_check.pb.js):
  *   - onRecordBeforeCreateRequest + plain $app.dao() reads/writes
@@ -119,24 +119,32 @@ onRecordBeforeCreateRequest((e) => {
         // 3. Engineer short code (immutable; assigned on first use).
         const engCode = ensureShortCode("users", tech, tech.get("user_code") || tech.get("username"), 4);
 
+        // 3b. Technician initials: first letter of first + last name, else the
+        //     first two letters of short_code / user_code / username.
+        const initialsOf = (u) => {
+            const fn = String(u.get("first_name") || "").trim();
+            const ln = String(u.get("last_name") || "").trim();
+            let ini = "";
+            if (fn && ln) ini = (fn.charAt(0) + ln.charAt(0)).toUpperCase().replace(/[^A-Z]/g, "");
+            if (ini.length < 2) {
+                const base = String(u.get("short_code") || u.get("user_code") || u.get("username") || "")
+                    .toUpperCase().replace(/[^A-Z]/g, "");
+                ini = (base + "XX").slice(0, 2);
+            }
+            return ini.slice(0, 2);
+        };
+        const techInitials = initialsOf(tech);
+
         const ist = istNow();
         const y = ist.slice(0, 4);
 
-        // 4. Complaint number reservation. The complaint RECORD is created in
-        //    the after-create hook below (no nested saves here).
+        // 4. Complaint number reservation: J{YY}{INITIALS}{NNNN}. The complaint
+        //    RECORD is created in the after-create hook below (no nested saves).
+        //    The counter is shared per initials+year so two technicians with the
+        //    same initials never collide on the global complaint_no index.
         if (!String(rec.get("complaint_id") || "").trim()) {
-            let regionCode = "UNK";
-            const regionId = String(hub.get("region_id") || "");
-            if (regionId) {
-                let region = null;
-                try { region = dao.findRecordById("regions", regionId); } catch (err) { region = null; }
-                if (region) {
-                    regionCode = ensureShortCode("regions", region, region.get("region_code") || region.get("name"), 3);
-                }
-            }
-            const hubCode = ensureShortCode("service_hubs", hub, hub.get("hub_code") || hub.get("name"), 4);
-            const cn = nextSeq("cmp:" + y + ":" + regionCode + ":" + hubCode, "complaints:" + regionCode + ":" + hubCode, ist.slice(0, 10));
-            rec.set("complaint_no", "CMP-" + y.slice(2, 4) + "-" + regionCode + "-" + hubCode + "-" + pad(cn, 4));
+            const cn = nextSeq("cmp2:" + y + ":" + techInitials, "complaints:" + techInitials, ist.slice(0, 10));
+            rec.set("complaint_no", "J" + y.slice(2, 4) + techInitials + pad(cn, 4));
         } else {
             let complaint = null;
             try { complaint = dao.findRecordById("complaints", String(rec.get("complaint_id"))); } catch (err) { complaint = null; }

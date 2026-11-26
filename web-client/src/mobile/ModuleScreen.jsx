@@ -3,6 +3,7 @@ import { Icon } from './Icon.jsx';
 import { go, isSoonError, dayLabel } from './util.js';
 import { filterRows } from './tree.js';
 import { RecordDetail } from './RecordDetail.jsx';
+import { JobDetail } from '../components/JobDetail.jsx';
 
 export function ComingSoon({ title = 'Coming online soon', message }) {
   return (
