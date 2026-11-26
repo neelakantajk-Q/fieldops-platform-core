@@ -16,13 +16,18 @@ export default function Attendance({ session, onSession }) {
   const [date, setDate] = useState(todayISO());
   const [userId, setUserId] = useState('');
   const [query, setQuery] = useState({ date: todayISO(), userId: '' });
+  const [range, setRange] = useState('today');
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [checkOutOpen, setCheckOutOpen] = useState(false);
   const [proofRow, setProofRow] = useState(null);
 
+  const attendanceQuery = range === 'today'
+    ? { date: query.date, userId: query.userId, page: 1, pageSize: 100 }
+    : { days: Number(range), userId: query.userId, page: 1, pageSize: 500 };
+
   const { data, loading, error, reload } = useAsync(
-    () => call('getAttendance', { date: query.date, userId: query.userId, page: 1, pageSize: 100 }),
-    [query.date, query.userId]
+    () => call('getAttendance', attendanceQuery),
+    [range, query.date, query.userId]
   );
 
   const rows = (data && data.daily) || [];
@@ -93,10 +98,15 @@ export default function Attendance({ session, onSession }) {
         </div>
       ) : null}
 
-      <Card pad={false} title="Daily register"
+      <Card pad={false} title={range === 'today' ? 'Daily register' : 'Attendance history'}
         actions={
           <div className="row">
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: 150 }} />
+            <Btn size="sm" variant={range === 'today' ? 'primary' : 'ghost'} onClick={() => setRange('today')}>Today</Btn>
+            <Btn size="sm" variant={range === '7' ? 'primary' : 'ghost'} onClick={() => setRange('7')}>7 days</Btn>
+            <Btn size="sm" variant={range === '30' ? 'primary' : 'ghost'} onClick={() => setRange('30')}>30 days</Btn>
+            {range === 'today' ? (
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: 150 }} />
+            ) : null}
             <input placeholder="Filter user id" value={userId} onChange={(e) => setUserId(e.target.value)} style={{ width: 170 }} />
             <Btn size="sm" variant="ghost" onClick={() => setQuery({ date, userId: userId.trim() })}>Apply</Btn>
           </div>
@@ -104,7 +114,12 @@ export default function Attendance({ session, onSession }) {
         {error ? <div className="hint-banner" style={{ margin: 16 }}>{error.message}</div> : null}
         {loading ? <Spinner label="Loading attendance…" /> : (
           <div style={{ padding: 16 }}>
-            <Table columns={columns} rows={rows} empty="No attendance for this day." rowKey={(r, i) => `${r.userId}-${r.date}-${i}`} />
+            <Table
+              columns={columns}
+              rows={rows}
+              empty={range === 'today' ? 'No attendance for this day.' : `No attendance in the last ${range} days.`}
+              rowKey={(r, i) => `${r.userId}-${r.date}-${i}`}
+            />
           </div>
         )}
       </Card>

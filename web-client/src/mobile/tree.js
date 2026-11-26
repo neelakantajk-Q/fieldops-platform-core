@@ -127,12 +127,12 @@ export const MODULES = [
   {
     id: 'attendance', label: 'Attendance', short: 'AT', icon: 'calendar', tone: 'teal', min: 1,
     children: [
+      { id: 'history', label: 'History 30d' },
       { id: 'today', label: 'Today' },
       { id: 'hub', label: 'Hub roster' },
       { id: 'active', label: 'Active' },
       { id: 'closed', label: 'Checked out' },
       { id: 'proof', label: 'Proof pending' },
-      { id: 'history', label: 'History 30d' },
       { id: 'all', label: 'All' }
     ],
     load: async ({ child }) => {
