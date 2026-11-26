@@ -418,7 +418,20 @@ class OverlayBubbleService : Service() {
         when (stage) {
             Stage.NEED_CHECKIN -> openCamera("attendance")
             Stage.READY_JOB -> openCamera("job")
-            Stage.AWAITING_APPROVAL -> {
+            Stage.AWAITING_APPROVAL -> checkPendingRequest()
+            Stage.JOB_ACTIVE -> confirmComplete()
+            Stage.ON_HOLD -> toast("Job is ON HOLD. Long-press the bubble to stop the job or open the app.")
+            else -> {}
+        }
+    }
+
+    /**
+     * Network work must not run on the main thread (tap handlers execute on the
+     * UI thread); doing so throws NetworkOnMainThreadException and kills the app.
+     */
+    private fun checkPendingRequest() {
+        thread {
+            try {
                 val myRequests = Api().pendingRequests()
                 val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT+05:30"))
                 cal.setTimeInMillis(System.currentTimeMillis() + 19800000)
@@ -432,17 +445,18 @@ class OverlayBubbleService : Service() {
                     }
                 }
 
-                if (existingReq != null) {
-                    val reqStatus = existingReq.optString("status")
-                    val reqType = existingReq.optString("request_type")
-                    val reqDist = existingReq.optDouble("distance_from_hub_meters", 0.0)
-                    val reqNotes = existingReq.optString("notes")
-                    if (reqStatus == "PENDING") {
-                        toast("Your transit request is PENDING approval.\n${reqType} requested, ${reqDist}m beyond hub radius.\n${reqNotes.take(60)}")
+                val req = existingReq
+                if (req != null) {
+                    val reqStatus = req.optString("status")
+                    val reqType = req.optString("request_type")
+                    val reqDist = req.optDouble("distance_from_hub_meters", 0.0)
+                    val reqNotes = req.optString("notes")
+                    val msg = if (reqStatus == "PENDING") {
+                        "Your transit request is PENDING approval.\n${reqType} requested, ${reqDist}m beyond hub radius.\n${reqNotes.take(60)}"
                     } else {
-                        toast("Your transit request was REJECTED.\n${reqNotes.take(60)}")
+                        "Your transit request was REJECTED.\n${reqNotes.take(60)}"
                     }
-                    pollNow()
+                    main.post { toast(msg) }
                 } else {
                     val fiveMin = 5L * 60L * 1000L
                     val canSubmit = (System.currentTimeMillis() - lastRequestTime) >= fiveMin
@@ -450,14 +464,13 @@ class OverlayBubbleService : Service() {
                         submitRoamingRequest()
                     } else {
                         val remaining = fiveMin - (System.currentTimeMillis() - lastRequestTime)
-                        toast("Wait ${remaining / 60000} more minutes before submitting another request.")
+                        main.post { toast("Wait ${remaining / 60000} more minutes before submitting another request.") }
                     }
                 }
                 pollNow()
+            } catch (e: Exception) {
+                main.post { toast("Status check failed: ${e.message ?: e.javaClass.simpleName}") }
             }
-            Stage.JOB_ACTIVE -> confirmComplete()
-            Stage.ON_HOLD -> toast("Job is ON HOLD. Long-press the bubble to stop the job or open the app.")
-            else -> {}
         }
     }
 

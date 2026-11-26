@@ -1194,6 +1194,10 @@ migrate((db) => {
     { user: "admin", type: "REPLENISHMENT", title: "Replenishment raised", body: "P-1005 needs replenishment", ref: "replenishment_requests", refId: "", priority: "NORMAL", status: "UNREAD", date: 21 }
   ];
   notifDefs.forEach((n) => {
+    const dayBase = BASE + (n.date - 10) * DAY; // 10:00 IST that day
+    // The check-in reminder is a morning nudge (09:00 IST); the rest stay at
+    // the generic 15:00 IST demo time.
+    const atMs = n.type === "ATTENDANCE_REMINDER" ? dayBase - 1 * HOUR : dayBase + 5 * HOUR;
     seed("notifications", "title = {:t} && body = {:b}", { t: n.title, b: n.body }, {
       company_id: companyId,
       user_id: userIds[n.user],
@@ -1205,7 +1209,7 @@ migrate((db) => {
       priority: n.priority,
       status: n.status,
       ist_date: "2026-11-" + pad(n.date, 2),
-      created: iso(BASE + (n.date - 10) * DAY + 5 * HOUR)
+      created: iso(atMs)
     });
   });
 
