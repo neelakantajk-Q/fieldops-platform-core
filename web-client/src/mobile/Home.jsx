@@ -330,7 +330,7 @@ export function Home({ session, unread }) {
 
         <section className="m-section">
           <div className="m-section-head">
-            <h3>Performance</h3>
+            <h3>Hub Performance</h3>
             {canPerf ? <button type="button" className="m-link" onClick={() => go('performance')}>Full report</button> : null}
           </div>
           <div className="m-stats">

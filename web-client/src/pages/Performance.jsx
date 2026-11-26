@@ -35,19 +35,19 @@ export default function Performance({ session }) {
     const name = t.assignedUserId || 'Unassigned';
     const row = userRows[name] || (userRows[name] = { user: name, jobs: 0, completed: 0, open: 0, holds: 0, tat: 0, _tat: 0 });
     row.jobs += 1;
-    if (t.status === 'Completed') { row.completed += 1; row._tat += Number(t.turnaroundMinutes) || 0; }
+    if (t.status === 'Completed') { row.completed += 1; row._tat += Number(t.turnaroundMinutes) || 0; row.tat += Number(t.turnaroundMinutes) || 0; }
     else if (t.status === 'OnHold') row.holds += 1;
     else row.open += 1;
   });
   const users = Object.values(userRows)
-    .map((r) => ({ ...r, rate: r.jobs ? Math.round(100 * r.completed / r.jobs) : 0, avgTat: r.completed ? Math.round(r._tat / r.completed) : 0 }))
+    .map((r) => ({ ...r, rate: r.jobs ? Math.round(100 * r.completed / r.jobs) : 0, tat: r.tat || 0, avgTat: r.completed ? Math.round(r._tat / r.completed) : 0 }))
     .sort((x, y) => y.completed - x.completed || y.jobs - x.jobs);
 
   const hubRows = (mis.data && mis.data.rows) || [];
 
   return (
     <>
-      <PageHeader title="Hub & Peer Performance"
+      <PageHeader title="Hub Performance"
         subtitle={`Operational comparison for ${session.role} · ${session.hub || 'all hubs'}`}
         actions={<button className="btn ghost sm" onClick={() => { perf.reload(); holds.reload(); tasks.reload(); mis.reload(); }}>REFRESH</button>} />
 
@@ -61,18 +61,18 @@ export default function Performance({ session }) {
       </div>
 
       <div className="grid cols-2">
-        <Card title="Hub performance" subtitle="Job cards per hub">
+        <Card title="Hub Performance" subtitle="Job cards per hub">
           {perf.loading ? <Spinner label="Loading hub workload…" /> : null}
           {!perf.loading ? <BarList data={a.hubWorkload} tone="#0284c7" empty="No hub workload yet." /> : null}
         </Card>
-        <Card title="Peer performance" subtitle="Job cards per engineer">
+        <Card title="Your Performance" subtitle="Job cards per engineer">
           {perf.loading ? <Spinner label="Loading peer productivity…" /> : null}
           {!perf.loading ? <BarList data={a.engineerProductivity} tone="#16a34a" empty="No peer productivity yet." /> : null}
         </Card>
       </div>
 
       <div style={{ marginTop: 16 }}>
-        <Card title="User-wise performance" subtitle="Job cards per engineer with completion rate and TAT">
+        <Card title="Your Performance" subtitle="Job cards per engineer with completion rate and TAT">
           {tasks.loading ? <Spinner label="Loading user performance…" /> : null}
           {tasks.error ? <div className="hint-banner">{tasks.error.message}</div> : null}
           {!tasks.loading && !tasks.error ? (
@@ -87,6 +87,7 @@ export default function Performance({ session }) {
                 { key: 'open', label: 'Open' },
                 { key: 'holds', label: 'Holds' },
                 { key: 'rate', label: 'Completion', render: (r) => `${r.rate}%` },
+                { key: 'tat', label: 'TAT', render: (r) => (r.tat ? `${r.tat} min` : '-') },
                 { key: 'avgTat', label: 'Avg TAT', render: (r) => (r.avgTat ? `${r.avgTat} min` : '-') }
               ]}
             />
@@ -95,7 +96,7 @@ export default function Performance({ session }) {
       </div>
 
       <div style={{ marginTop: 16 }}>
-        <Card title="Hub-wise performance" subtitle="Job cards per hub with completion rate and TAT">
+        <Card title="Hub TAT" subtitle="Total + average turnaround time per hub">
           {mis.loading ? <Spinner label="Loading hub performance…" /> : null}
           {mis.error ? <div className="hint-banner">{mis.error.message}</div> : null}
           {!mis.loading && !mis.error ? (
@@ -109,6 +110,7 @@ export default function Performance({ session }) {
                 { key: 'completed', label: 'Completed' },
                 { key: 'holds', label: 'Holds' },
                 { key: 'rate', label: 'Completion', render: (r) => `${r.jobs ? Math.round(100 * r.completed / r.jobs) : 0}%` },
+                { key: 'tatMinutes', label: 'TAT', render: (r) => (r.tatMinutes ? `${Math.round(r.tatMinutes)} min` : '-') },
                 { key: 'avgTatMinutes', label: 'Avg TAT', render: (r) => (r.avgTatMinutes ? `${r.avgTatMinutes} min` : '-') }
               ]}
             />

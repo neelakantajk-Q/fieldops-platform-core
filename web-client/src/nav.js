@@ -37,7 +37,7 @@ export const NAV = [
     { id: 'team', label: 'Team', min: 1, view: Team },
     { id: 'person360', label: 'Person 360', min: 2, view: Person360 },
     { id: 'dealervisits', label: 'Dealer Visits', min: 2, view: DealerVisits },
-    { id: 'performance', label: 'Performance', min: 2, view: Performance },
+    { id: 'performance', label: 'Hub Performance', min: 2, view: Performance },
     { id: 'map', label: 'Live Map', min: 1, view: LiveMap },
     { id: 'notifications', label: 'Notifications', min: 1, view: Notifications }
   ]},

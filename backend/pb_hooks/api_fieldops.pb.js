@@ -149,7 +149,7 @@ routerAdd("POST", "/api/fieldops/directory", (c) => {
         ["latitude"], ["longitude"], ["radius_meters", "radiusMeters"], ["active"],
         ["allow_roaming", "allowRoaming"]
     ]);
-    const regions = pick("regions", [["region_code"], ["name"], ["company_id"], ["active"]]);
+    const regions = pick("regions", [["region_code"], ["name"], ["company_id"], ["active"], ["zone"]]);
     const clients = pick("clients", [
         ["name"], ["hub_id", "hubId"], ["address"],
         ["latitude"], ["longitude"], ["active"]
@@ -241,6 +241,7 @@ routerAdd("POST", "/api/fieldops/admin-user", (c) => {
             u.set("scope", data.scope || scopes[role]);
             u.set("hub_id", data.hubId || "");
             u.set("region_id", data.regionId || "");
+            u.set("reports_to", data.reportsTo || "");
             u.set("phone_number", data.phone || "");
             u.set("module_rights", data.moduleRights || "Tasks,Attendance,Vehicles");
             db.saveRecord(u); // seat_limit.pb.js may reject the 51st user here
@@ -254,6 +255,7 @@ routerAdd("POST", "/api/fieldops/admin-user", (c) => {
             if (data.role) u.set("role", data.role);
             if (data.hubId !== undefined) u.set("hub_id", data.hubId);
             if (data.regionId !== undefined) u.set("region_id", data.regionId);
+            if (data.reportsTo !== undefined) u.set("reports_to", data.reportsTo);
             if (data.phone !== undefined) u.set("phone_number", data.phone);
             if (data.status) u.set("status", data.status);
             if (data.moduleRights) u.set("module_rights", data.moduleRights);
@@ -275,6 +277,163 @@ routerAdd("POST", "/api/fieldops/admin-user", (c) => {
     } catch (err) {
         return c.json(400, { success: false, code: err.message || "ADMIN_FAILED", message: String(err.message || err) });
     }
+});
+
+/* ------------------------- zone mapping + hub alert broadcasting -------- */
+
+routerAdd("POST", "/api/fieldops/region-zone", (c) => {
+    // inlined session guard, Administrator+ only (0.22 JSVM visibility rule)
+    const info = $apis.requestInfo(c);
+    const body = info.data || {};
+    let actor = null;
+    try {
+        const rows = $app.dao().findRecordsByFilter(
+            "users", "active_session_token = {:t}", "", 1, 0,
+            { t: String(body.sessionToken || "").trim() }
+        );
+        if (rows && rows.length) {
+            const expiry = Number(rows[0].get("session_expiry") || 0);
+            if (!(expiry > 0 && Date.now() > expiry)) actor = rows[0];
+        }
+    } catch (err) { actor = null; }
+    if (!actor) return c.json(401, { success: false, code: "SESSION_INVALID", message: "Sign in again." });
+    const ranks = { Technician: 1, Supervisor: 2, Moderator: 3, Administrator: 4, Platform: 99 };
+    if ((ranks[String(actor.get("role") || "")] || 0) < 4) {
+        return c.json(403, { success: false, code: "FORBIDDEN", message: "Administrator role required." });
+    }
+
+    const db = $app.dao();
+    const updates = Array.isArray(body.updates)
+        ? body.updates
+        : (body.regionId ? [{ regionId: body.regionId, zone: body.zone }] : []);
+    if (!updates.length) {
+        return c.json(400, { success: false, code: "VALIDATION", message: "No region updates supplied." });
+    }
+
+    const companyId = String(actor.get("company_id") || "");
+    let updated = 0;
+    for (const u of updates) {
+        try {
+            const rec = db.findFirstRecordByData("regions", "id", String(u.regionId || ""));
+            if (!rec) continue;
+            if (companyId && String(rec.get("company_id") || "") !== companyId) continue;
+            rec.set("zone", String(u.zone || "").trim());
+            db.saveRecord(rec);
+            updated++;
+        } catch (err) { /* skip bad row */ }
+    }
+    return c.json(200, { success: true, updated });
+});
+
+routerAdd("POST", "/api/fieldops/alert-broadcast", (c) => {
+    // inlined session guard, Administrator+ only (0.22 JSVM visibility rule)
+    const info = $apis.requestInfo(c);
+    const body = info.data || {};
+    let actor = null;
+    try {
+        const rows = $app.dao().findRecordsByFilter(
+            "users", "active_session_token = {:t}", "", 1, 0,
+            { t: String(body.sessionToken || "").trim() }
+        );
+        if (rows && rows.length) {
+            const expiry = Number(rows[0].get("session_expiry") || 0);
+            if (!(expiry > 0 && Date.now() > expiry)) actor = rows[0];
+        }
+    } catch (err) { actor = null; }
+    if (!actor) return c.json(401, { success: false, code: "SESSION_INVALID", message: "Sign in again." });
+    const ranks = { Technician: 1, Supervisor: 2, Moderator: 3, Administrator: 4, Platform: 99 };
+    if ((ranks[String(actor.get("role") || "")] || 0) < 4) {
+        return c.json(403, { success: false, code: "FORBIDDEN", message: "Administrator role required." });
+    }
+
+    const db = $app.dao();
+    const companyId = String(actor.get("company_id") || "");
+    const title = String(body.title || "").trim();
+    const text = String(body.body || body.message || "").trim();
+    if (!title && !text) {
+        return c.json(400, { success: false, code: "VALIDATION", message: "Alert title or message is required." });
+    }
+
+    const scope = body.scope || {};
+    const level = String(scope.level || "HUB").toUpperCase();
+
+    const allUsers = db.findRecordsByFilter(
+        "users", "company_id = {:c} && status = 'Active'", "", 1000, 0, { c: companyId }
+    ) || [];
+    const allRegions = db.findRecordsByFilter("regions", "company_id = {:c}", "", 500, 0, { c: companyId }) || [];
+    const allHubs = db.findRecordsByFilter("service_hubs", "company_id = {:c}", "", 500, 0, { c: companyId }) || [];
+
+    const regionOfHub = {};
+    for (const h of allHubs) regionOfHub[String(h.get("id") || "")] = String(h.get("region_id") || "");
+
+    let match;
+    if (level === "ZONE") {
+        const zone = String(scope.zone || "").trim();
+        const regionIds = {};
+        for (const r of allRegions) {
+            if (String(r.get("zone") || "").trim() === zone) regionIds[String(r.get("id") || "")] = true;
+        }
+        match = (u) => Boolean(regionIds[String(u.get("region_id") || "")])
+            || Boolean(regionIds[regionOfHub[String(u.get("hub_id") || "")]]);
+    } else if (level === "REGION") {
+        const regionId = String(scope.regionId || "").trim();
+        match = (u) => String(u.get("region_id") || "") === regionId
+            || regionOfHub[String(u.get("hub_id") || "")] === regionId;
+    } else {
+        const hubId = String(scope.hubId || "").trim();
+        match = (u) => String(u.get("hub_id") || "") === hubId;
+    }
+
+    // Resolve recipients BEFORE reassignment so moved people still get the alert.
+    const recipients = allUsers.filter(match);
+
+    const reassignments = Array.isArray(body.reassignments) ? body.reassignments : [];
+    let applied = 0;
+    if (body.affectsTeam || reassignments.length) {
+        for (const r of reassignments) {
+            try {
+                const u = db.findFirstRecordByData("users", "id", String(r.userId || ""));
+                if (!u) continue;
+                if (r.role) u.set("role", String(r.role));
+                if (r.hubId !== undefined) u.set("hub_id", String(r.hubId || ""));
+                if (r.regionId !== undefined) u.set("region_id", String(r.regionId || ""));
+                if (r.reportsTo !== undefined) u.set("reports_to", String(r.reportsTo || ""));
+                if (r.phone !== undefined) u.set("phone_number", String(r.phone || ""));
+                if (r.status) u.set("status", String(r.status));
+                db.saveRecord(u);
+                applied++;
+            } catch (err) { /* skip bad row */ }
+        }
+    }
+
+    const seen = {};
+    for (const u of recipients) seen[String(u.get("id") || "")] = true;
+
+    const priorityRaw = String(body.priority || "NORMAL").toUpperCase();
+    const priority = ["LOW", "NORMAL", "HIGH"].indexOf(priorityRaw) >= 0 ? priorityRaw : "HIGH";
+    const created = new Date().toISOString();
+    const istDate = String(new Date(Date.now() + 19800000).toISOString()).slice(0, 10);
+
+    let notified = 0;
+    for (const uid in seen) {
+        if (!uid) continue;
+        try {
+            const n = new Record(db.findCollectionByNameOrId("notifications"));
+            n.set("company_id", companyId);
+            n.set("user_id", uid);
+            n.set("type", "TEAM_ALERT");
+            n.set("title", title || "Team alert");
+            n.set("body", text || title);
+            n.set("priority", priority);
+            n.set("status", "UNREAD");
+            n.set("ist_date", istDate);
+            n.set("created", created);
+            db.saveRecord(n);
+            notified++;
+        } catch (err) { /* skip bad recipient */ }
+    }
+
+    return c.json(200, { success: true, notified, applied, level });
 });
 
 /* ------------------------------------------- per-user geofence (map editor) */

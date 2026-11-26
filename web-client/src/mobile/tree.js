@@ -356,7 +356,7 @@ export const MODULES = [
   { id: 'map', label: 'Live Map', short: 'MP', icon: 'map', tone: 'teal', min: 1, screen: LiveMap },
   { id: 'notifications', label: 'Alerts', short: 'AL', icon: 'bell', tone: 'amber', min: 1, screen: Notifications },
   { id: 'reports', label: 'Reports & MIS', short: 'MI', icon: 'chart', tone: 'lime', min: 2, screen: Reports },
-  { id: 'performance', label: 'Performance', short: 'PF', icon: 'chart', tone: 'violet', min: 2, screen: Performance },
+  { id: 'performance', label: 'Hub Performance', short: 'PF', icon: 'chart', tone: 'violet', min: 2, screen: Performance },
   { id: 'dealervisits', label: 'Dealer Visits', short: 'DV', icon: 'route', tone: 'teal', min: 2, screen: DealerVisits },
   { id: 'person360', label: 'Person 360', short: 'P3', icon: 'users', tone: 'violet', min: 2, screen: Person360 },
   { id: 'masters', label: 'Master Data', short: 'MD', icon: 'grid', tone: 'slate', min: 2, screen: Masters },

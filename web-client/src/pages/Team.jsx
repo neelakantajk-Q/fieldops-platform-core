@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { call } from '../api.js';
-import { Badge, Btn, Card, Empty, PageHeader, Spinner, useAsync } from '../components.jsx';
+import { Badge, Btn, Card, Empty, Field, Modal, PageHeader, Spinner, useAsync, useToast } from '../components.jsx';
 
 const ROLE_TONE = { Administrator: 'primary', Moderator: 'info', Supervisor: 'warn', Technician: 'neutral', Platform: 'bad' };
 const LEAD_ROLES = ['Moderator', 'Administrator', 'Platform'];
+const ADMIN_ROLES = ['Administrator', 'Platform'];
 
 function initialsOf(name) {
   const parts = String(name || '?').trim().split(/\s+/);
@@ -155,7 +156,175 @@ function BarList({ data, tone = '#2563eb', empty = 'No data.' }) {
   );
 }
 
+function ZoneModal({ open, regions, onClose, onSaved }) {
+  const toast = useToast();
+  const [draft, setDraft] = useState({});
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const next = {};
+    (regions || []).forEach((r) => { next[r.id] = r.zone || ''; });
+    setDraft(next);
+  }, [open, regions]);
+
+  const known = useMemo(
+    () => Array.from(new Set((regions || []).map((r) => String(r.zone || '').trim()).filter(Boolean))),
+    [regions]
+  );
+
+  async function save() {
+    setBusy(true);
+    try {
+      const updates = (regions || []).map((r) => ({ regionId: r.id, zone: String(draft[r.id] || '').trim() }));
+      const res = await call('setRegionZone', { updates });
+      toast.push(`Zones saved for ${res.updated != null ? res.updated : updates.length} region(s).`, 'ok');
+      onSaved && onSaved();
+    } catch (err) {
+      toast.push(err.message, 'bad');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal open={open} title="Map zones" onClose={onClose} wide
+      footer={<><Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save zones'}</Btn></>}>
+      <p className="muted small">
+        Group regions into zones (e.g. South, North, East). The Team tree then shows
+        Zone → Region → Hub → people. Leave blank to keep a region ungrouped.
+      </p>
+      {!(regions || []).length ? <Empty>No regions to map.</Empty> : (
+        <div className="form-grid">
+          {(regions || []).map((r) => (
+            <Field key={r.id} label={r.name} hint={r.code || ''}>
+              <input
+                list="zone-names"
+                placeholder="Zone name"
+                value={draft[r.id] == null ? '' : draft[r.id]}
+                onChange={(e) => setDraft((d) => ({ ...d, [r.id]: e.target.value }))}
+              />
+            </Field>
+          ))}
+        </div>
+      )}
+      <datalist id="zone-names">
+        {known.map((z) => <option key={z} value={z} />)}
+      </datalist>
+    </Modal>
+  );
+}
+
+function BroadcastModal({ open, zones, regions, hubs, people, onClose }) {
+  const toast = useToast();
+  const [level, setLevel] = useState('ZONE');
+  const [zone, setZone] = useState('');
+  const [regionId, setRegionId] = useState('');
+  const [hubId, setHubId] = useState('');
+  const [title, setTitle] = useState('');
+  const [message, setMessage] = useState('');
+  const [priority, setPriority] = useState('HIGH');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setLevel(zones.length ? 'ZONE' : (regions.length ? 'REGION' : 'HUB'));
+    setZone((zones[0] && zones[0].zone) || '');
+    setRegionId((regions[0] && regions[0].id) || '');
+    setHubId((hubs[0] && hubs[0].id) || '');
+    setTitle('');
+    setMessage('');
+    setPriority('HIGH');
+  }, [open, zones, regions, hubs]);
+
+  const recipientCount = useMemo(() => {
+    if (level === 'ZONE') {
+      const regionIds = new Set((regions || [])
+        .filter((r) => (String(r.zone || '').trim() || 'Unassigned zone') === zone)
+        .map((r) => r.id));
+      const hubIds = new Set((hubs || []).filter((h) => regionIds.has(h.regionId)).map((h) => h.id));
+      return (people || []).filter((p) => regionIds.has(p.regionId) || hubIds.has(p.hubId)).length;
+    }
+    if (level === 'REGION') {
+      const hubIds = new Set((hubs || []).filter((h) => h.regionId === regionId).map((h) => h.id));
+      return (people || []).filter((p) => p.regionId === regionId || hubIds.has(p.hubId)).length;
+    }
+    return (people || []).filter((p) => p.hubId === hubId).length;
+  }, [level, zone, regionId, hubId, regions, hubs, people]);
+
+  async function send() {
+    if (!title.trim() && !message.trim()) {
+      toast.push('Enter a title or a message first.', 'bad');
+      return;
+    }
+    const scope = level === 'ZONE'
+      ? { level, zone }
+      : level === 'REGION' ? { level, regionId } : { level, hubId };
+    setBusy(true);
+    try {
+      const res = await call('broadcastAlert', {
+        title: title.trim(), message: message.trim(), priority,
+        scope, affectsTeam: false, reassignments: []
+      });
+      toast.push(`Alert sent to ${res.notified || 0} ${res.notified === 1 ? 'person' : 'people'}.`, 'ok');
+      onClose && onClose();
+    } catch (err) {
+      toast.push(err.message, 'bad');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal open={open} title="Broadcast alert" onClose={onClose}
+      footer={<><Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={send} disabled={busy}>{busy ? 'Sending…' : `Send to ${recipientCount}`}</Btn></>}>
+      <div className="form-grid">
+        <Field label="Send to" hint={`${recipientCount} recipient${recipientCount === 1 ? '' : 's'} in scope`}>
+          <select value={level} onChange={(e) => setLevel(e.target.value)}>
+            <option value="ZONE" disabled={!zones.length}>Zone</option>
+            <option value="REGION" disabled={!regions.length}>Region</option>
+            <option value="HUB" disabled={!hubs.length}>Hub</option>
+          </select>
+        </Field>
+        {level === 'ZONE' ? (
+          <Field label="Zone">
+            <select value={zone} onChange={(e) => setZone(e.target.value)}>
+              {zones.map((z) => <option key={z.zone} value={z.zone}>{z.zone}</option>)}
+            </select>
+          </Field>
+        ) : null}
+        {level === 'REGION' ? (
+          <Field label="Region">
+            <select value={regionId} onChange={(e) => setRegionId(e.target.value)}>
+              {regions.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          </Field>
+        ) : null}
+        {level === 'HUB' ? (
+          <Field label="Hub">
+            <select value={hubId} onChange={(e) => setHubId(e.target.value)}>
+              {hubs.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+            </select>
+          </Field>
+        ) : null}
+        <Field label="Priority">
+          <select value={priority} onChange={(e) => setPriority(e.target.value)}>
+            <option value="LOW">Low</option>
+            <option value="NORMAL">Normal</option>
+            <option value="HIGH">High</option>
+          </select>
+        </Field>
+        <Field label="Title"><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Hub closes at 4 PM today" /></Field>
+        <Field label="Message"><textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} /></Field>
+      </div>
+    </Modal>
+  );
+}
+
 export default function Team({ session }) {
+  const canAdmin = ADMIN_ROLES.indexOf(session.role) >= 0;
   const tree = useAsync(() => call('getOrgTree', {}), []);
   const perf = useAsync(() => call('getAnalytics', {}), []);
   const data = (tree.data || {});
@@ -165,10 +334,13 @@ export default function Team({ session }) {
   const people = data.people || [];
   const analytics = (perf.data && perf.data.analytics) || {};
 
+  const [openZones, setOpenZones] = useState(() => new Set());
   const [openRegions, setOpenRegions] = useState(() => new Set());
   const [openHubs, setOpenHubs] = useState(() => new Set());
   const [opened, setOpened] = useState(false);
   const [query, setQuery] = useState('');
+  const [zoneModal, setZoneModal] = useState(false);
+  const [alertModal, setAlertModal] = useState(false);
 
   const groups = useMemo(() => {
     const hubCards = hubs.map((h) => {
@@ -198,20 +370,43 @@ export default function Team({ session }) {
     return { byRegion, orphanHubs, unassigned };
   }, [regions, hubs, people]);
 
+  const zones = useMemo(() => {
+    const byZone = new Map();
+    groups.byRegion.forEach((r) => {
+      const key = String(r.zone || '').trim() || 'Unassigned zone';
+      if (!byZone.has(key)) byZone.set(key, []);
+      byZone.get(key).push(r);
+    });
+    return Array.from(byZone.entries())
+      .map(([zone, regionList]) => ({
+        zone,
+        regions: regionList,
+        hubCount: regionList.reduce((a, r) => a + r.hubs.length, 0),
+        peopleCount: regionList.reduce((a, r) => a + r.count, 0)
+      }))
+      .sort((a, b) => a.zone.localeCompare(b.zone));
+  }, [groups.byRegion]);
+
+  const showZones = zones.length > 1 || (zones.length === 1 && zones[0].zone !== 'Unassigned zone');
+  const realZones = useMemo(() => zones.filter((z) => z.zone !== 'Unassigned zone'), [zones]);
+
   useEffect(() => {
     if (opened || !people.length) return;
     const me = people.find((p) => p.userId === session.userId || p.username === session.username) || {};
     const regionId = me.regionId || (groups.byRegion[0] && groups.byRegion[0].id) || '';
     const hubId = me.hubId || '';
+    const myRegion = groups.byRegion.find((r) => r.id === regionId);
+    const zoneName = myRegion ? (String(myRegion.zone || '').trim() || 'Unassigned zone') : (zones[0] && zones[0].zone);
+    setOpenZones(new Set(zoneName ? [zoneName] : []));
     setOpenRegions(new Set(regionId ? [regionId] : []));
     setOpenHubs(new Set(hubId ? [hubId] : []));
     setOpened(true);
-  }, [opened, people, groups, session]);
+  }, [opened, people, groups, zones, session]);
 
   const searchHits = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return null;
-    return people.filter((p) => [p.username, p.userId, p.role, p.userCode, p.hub, p.region]
+    return people.filter((p) => [p.username, p.userId, p.role, p.userCode, p.hub, p.region, p.regionZone]
       .some((v) => String(v || '').toLowerCase().indexOf(q) >= 0));
   }, [query, people]);
 
@@ -228,6 +423,11 @@ export default function Team({ session }) {
     return me.chain.slice().reverse().map((p) => ({ label: roles[p.role] || p.role, name: p.fullName || p.username, role: p.role }));
   }, [nodes, session]);
 
+  const toggleZone = (name) => setOpenZones((prev) => {
+    const next = new Set(prev);
+    if (next.has(name)) next.delete(name); else next.add(name);
+    return next;
+  });
   const toggleRegion = (id) => setOpenRegions((prev) => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -239,13 +439,14 @@ export default function Team({ session }) {
     return next;
   });
   const expandAll = () => {
+    setOpenZones(new Set(zones.map((z) => z.zone)));
     setOpenRegions(new Set([...regions.map((r) => r.id), ...groups.orphanHubs.map((h) => h.regionId)]));
     setOpenHubs(new Set(hubs.map((h) => h.id)));
   };
-  const collapseAll = () => { setOpenRegions(new Set()); setOpenHubs(new Set()); };
+  const collapseAll = () => { setOpenZones(new Set()); setOpenRegions(new Set()); setOpenHubs(new Set()); };
 
-  const hubFold = (hub) => (
-    <Fold key={hub.id} level={2} open={openHubs.has(hub.id)} onToggle={() => toggleHub(hub.id)}
+  const hubFold = (hub, level = 3) => (
+    <Fold key={hub.id} level={level} open={openHubs.has(hub.id)} onToggle={() => toggleHub(hub.id)}
       title={hub.name}
       subtitle={`${hub.members.length} ${hub.members.length === 1 ? 'person' : 'people'}${hub.lead ? ` · in-charge ${displayName(hub.lead)}` : ''}`}
       right={<span className="row" style={{ gap: 6 }}>
@@ -258,10 +459,29 @@ export default function Team({ session }) {
     </Fold>
   );
 
+  const regionFold = (region, level = 2) => (
+    <Fold key={region.id} level={level}
+      open={openRegions.has(region.id)} onToggle={() => toggleRegion(region.id)}
+      title={region.name}
+      subtitle={`${region.hubs.length} ${region.hubs.length === 1 ? 'hub' : 'hubs'} · ${region.count} ${region.count === 1 ? 'person' : 'people'}`}
+      right={<span className="row" style={{ gap: 6 }}>
+        {region.code ? <Badge tone="info">{region.code}</Badge> : <Badge tone="info">Region</Badge>}
+      </span>}>
+      {region.people.length ? (
+        <div style={{ marginBottom: 8 }}>
+          {region.people.map((p) => <PersonCard key={p.userId || p.username} person={p} depth={0} />)}
+        </div>
+      ) : null}
+      {region.hubs.length
+        ? region.hubs.map((hub) => hubFold(hub, level + 1))
+        : <div className="org-empty">No hubs in this region yet.</div>}
+    </Fold>
+  );
+
   return (
     <>
       <PageHeader title="Team"
-        subtitle="Hierarchy: Administrator → region in-charge (moderator) → hub in-charge (supervisor) → technicians" />
+        subtitle="Hierarchy: Zone → region in-charge (moderator) → hub in-charge (supervisor) → technicians" />
       {chain ? (
         <div className="hint-info" style={{ marginBottom: 16 }}>
           <strong>Your chain:</strong>{' '}
@@ -273,17 +493,19 @@ export default function Team({ session }) {
 
       <div style={{ marginTop: 16 }}>
         <Card pad={false} title="Organization"
-          subtitle="Click a region, then a hub, to fold open its hierarchy and people"
+          subtitle="Zone → region → hub → people. Click a group to fold it open."
           actions={
             <span className="muted small">{people.length} people · {hubs.length} hubs · {regions.length} regions</span>
           }>
           <div style={{ padding: 16 }}>
             <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-              <input placeholder="Search people, role, hub…" value={query}
+              <input placeholder="Search people, role, hub, zone…" value={query}
                 onChange={(e) => setQuery(e.target.value)} style={{ width: 260 }} />
               <Btn size="sm" variant="ghost" onClick={expandAll} disabled={!regions.length}>Expand all</Btn>
               <Btn size="sm" variant="ghost" onClick={collapseAll} disabled={!regions.length}>Collapse all</Btn>
               {query ? <Btn size="sm" variant="ghost" onClick={() => setQuery('')}>Clear</Btn> : null}
+              {canAdmin ? <Btn size="sm" variant="ghost" onClick={() => setZoneModal(true)} disabled={!regions.length}>Map zones</Btn> : null}
+              {canAdmin ? <Btn size="sm" onClick={() => setAlertModal(true)} disabled={!(zones.length || regions.length || hubs.length)}>Broadcast alert</Btn> : null}
             </div>
 
             {tree.loading ? <Spinner label="Loading org…" /> : null}
@@ -301,31 +523,24 @@ export default function Team({ session }) {
               </div>
             ) : (
               <>
-                {groups.byRegion.map((region) => (
-                  <Fold key={region.id} level={1}
-                    open={openRegions.has(region.id)} onToggle={() => toggleRegion(region.id)}
-                    title={region.name}
-                    subtitle={`${region.hubs.length} ${region.hubs.length === 1 ? 'hub' : 'hubs'} · ${region.count} ${region.count === 1 ? 'person' : 'people'}`}
-                    right={<span className="row" style={{ gap: 6 }}>
-                      {region.code ? <Badge tone="info">{region.code}</Badge> : <Badge tone="info">Region</Badge>}
-                    </span>}>
-                    {region.people.length ? (
-                      <div style={{ marginBottom: 8 }}>
-                        {region.people.map((p) => <PersonCard key={p.userId || p.username} person={p} depth={0} />)}
-                      </div>
-                    ) : null}
-                    {region.hubs.length
-                      ? region.hubs.map(hubFold)
-                      : <div className="org-empty">No hubs in this region yet.</div>}
-                  </Fold>
-                ))}
+                {showZones
+                  ? zones.map((zone) => (
+                      <Fold key={zone.zone} level={1}
+                        open={openZones.has(zone.zone)} onToggle={() => toggleZone(zone.zone)}
+                        title={zone.zone}
+                        subtitle={`${zone.regions.length} ${zone.regions.length === 1 ? 'region' : 'regions'} · ${zone.hubCount} ${zone.hubCount === 1 ? 'hub' : 'hubs'} · ${zone.peopleCount} ${zone.peopleCount === 1 ? 'person' : 'people'}`}
+                        right={<Badge tone="primary">Zone</Badge>}>
+                        {zone.regions.map((region) => regionFold(region, 2))}
+                      </Fold>
+                    ))
+                  : groups.byRegion.map((region) => regionFold(region, 1))}
 
                 {groups.orphanHubs.length ? (
                   <Fold level={1} open={openRegions.has('orphans')} onToggle={() => toggleRegion('orphans')}
                     title="Hubs without a region"
                     subtitle={`${groups.orphanHubs.length} hubs`}
                     right={<Badge tone="warn">Unmapped</Badge>}>
-                    {groups.orphanHubs.map(hubFold)}
+                    {groups.orphanHubs.map((hub) => hubFold(hub, 2))}
                   </Fold>
                 ) : null}
 
@@ -344,15 +559,25 @@ export default function Team({ session }) {
       </div>
 
       <div className="grid cols-2" style={{ marginTop: 16 }}>
-        <Card title="Hub performance" subtitle="Open + completed job cards per hub">
+        <Card title="Hub Performance" subtitle="Open + completed job cards per hub">
           {perf.loading ? <Spinner label="Loading hub workload…" /> : null}
           {!perf.loading ? <BarList data={analytics.hubWorkload} tone="#0284c7" empty="No hub workload yet." /> : null}
         </Card>
-        <Card title="Peer performance" subtitle="Completed job cards per engineer">
+        <Card title="Your Performance" subtitle="Completed job cards per engineer">
           {perf.loading ? <Spinner label="Loading peer productivity…" /> : null}
           {!perf.loading ? <BarList data={analytics.engineerProductivity} tone="#16a34a" empty="No peer productivity yet." /> : null}
         </Card>
       </div>
+
+      {zoneModal && canAdmin
+        ? <ZoneModal open regions={regions} onClose={() => setZoneModal(false)}
+            onSaved={() => { setZoneModal(false); tree.reload(); }} />
+        : null}
+      {alertModal && canAdmin
+        ? <BroadcastModal open zones={realZones}
+            regions={regions} hubs={hubs} people={people}
+            onClose={() => setAlertModal(false)} />
+        : null}
     </>
   );
 }

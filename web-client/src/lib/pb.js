@@ -718,6 +718,7 @@ export async function pbCall(action, payload = {}) {
         userId: u.id, username: u.username, fullName: u.username,
         role: u.role, hub: ((d.hubs || []).find((h) => h.id === u.hubId) || {}).name || '',
         region: ((d.regions || []).find((r) => r.id === u.regionId) || {}).name || '',
+        regionZone: ((d.regions || []).find((r) => r.id === u.regionId) || {}).zone || '',
         hubId: u.hubId || '', regionId: u.regionId || '',
         reportsTo: u.reportsTo || '', status: u.status || '', scope: u.scope || '',
         userCode: u.userCode || '',
@@ -747,7 +748,7 @@ export async function pbCall(action, payload = {}) {
         for (const t of (byHub[Object.keys(byHub)[0]] || (d.users || []))) tree.push(node(t));
       }
       const regionsOut = (d.regions || []).map((r) => ({
-        id: r.id, name: r.name, code: r.region_code || '', active: r.active
+        id: r.id, name: r.name, code: r.region_code || '', zone: r.zone || '', active: r.active
       }));
       const hubsOut = (d.hubs || []).map((h) => ({
         id: h.id, name: h.name, code: h.hub_code || '', regionId: h.regionId || '', active: h.active
@@ -767,6 +768,7 @@ export async function pbCall(action, payload = {}) {
         hubId: u.hubId || '',
         region: ((d.regions || []).find((r) => r.id === u.regionId) || {}).name || '',
         regionId: u.regionId || '',
+        regionZone: ((d.regions || []).find((r) => r.id === u.regionId) || {}).zone || '',
         phone: u.phone, status: u.status, scope: u.scope,
         geofenceMode: u.geofenceMode || 'INHERIT_HUB',
         geofenceLat: u.geofenceLat, geofenceLng: u.geofenceLng,
@@ -808,6 +810,18 @@ export async function pbCall(action, payload = {}) {
       const d = await directory();
       const hubName = (id) => ((d.hubs || []).find((h) => h.id === id) || {}).name || id || '—';
       const techName = (id) => ((d.users || []).find((u) => u.id === id) || {}).username || id || '—';
+      const hubTats = {};
+      items.forEach((t) => {
+        const hubId = String(t.hub_id || '');
+        const row = hubTats[hubId] || (hubTats[hubId] = { jobs: 0, tatTotalMinutes: 0 });
+        if (String(t.status || '') === 'CLOSED') { row.jobs += 1; row.tatTotalMinutes += Number(t.gross_tat_minutes) || Number(t.tat_minutes) || 0; }
+      });
+      const engineerTats = {};
+      items.forEach((t) => {
+        const techId = String((t.expand && t.expand.technician_id && t.expand.technician_id.username) || t.technician_id || '');
+        const row = engineerTats[techId] || (engineerTats[techId] = { jobs: 0, tatTotalMinutes: 0 });
+        if (String(t.status || '') === 'CLOSED') { row.jobs += 1; row.tatTotalMinutes += Number(t.gross_tat_minutes) || Number(t.tat_minutes) || 0; }
+      });
       return {
         ok: true,
         analytics: {
@@ -817,6 +831,8 @@ export async function pbCall(action, payload = {}) {
           pendingHolds: items.filter((t) => t.status === 'ON_HOLD').length,
           mockLocationFlags: 0,
           holdReasons: counts((t) => t.delay_reason || t.delay_category),
+          tatByHub: Object.entries(hubTats).map((kv) => ({ hub: hubName(kv[0]), jobs: kv[1].jobs, tatTotalMinutes: Math.round(kv[1].tatTotalMinutes), tatAvgMinutes: kv[1].jobs ? Math.round(kv[1].tatTotalMinutes / kv[1].jobs) : 0 })),
+          tatByEngineer: Object.entries(engineerTats).map((kv) => ({ user: techName(kv[0]), jobs: kv[1].jobs, tatTotalMinutes: Math.round(kv[1].tatTotalMinutes), tatAvgMinutes: kv[1].jobs ? Math.round(kv[1].tatTotalMinutes / kv[1].jobs) : 0 })),
           hubWorkload: counts((t) => hubName(t.hub_id)),
           engineerProductivity: counts((t) => techName(t.technician_id))
         }
@@ -1003,12 +1019,42 @@ export async function pbCall(action, payload = {}) {
       const user = { role: payload.role, phone: payload.phone, status: payload.status };
       if (payload.hub !== undefined) user.hubId = hub ? hub.id : '';
       if (payload.region !== undefined) user.regionId = region ? region.id : '';
+      if (payload.reportsTo !== undefined) user.reportsTo = payload.reportsTo;
       const { data } = await pbFetch('/api/fieldops/admin-user', {
         method: 'POST',
         body: { action: 'update', sessionToken: currentToken(), userId: payload.userId, user }
       });
       if (!data || !data.success) fail(data || {}, 'User update failed.');
       return { ok: true };
+    }
+    case 'setRegionZone': {
+      const updates = (Array.isArray(payload.updates) && payload.updates.length)
+        ? payload.updates
+        : (payload.regionId ? [{ regionId: payload.regionId, zone: payload.zone }] : []);
+      const { data } = await pbFetch('/api/fieldops/region-zone', {
+        method: 'POST',
+        body: { sessionToken: currentToken(), updates }
+      });
+      if (!data || !data.success) fail(data || {}, 'Zone update failed.');
+      dirCache = null; dirFetchedAt = 0;
+      return { ok: true, updated: data.updated };
+    }
+    case 'broadcastAlert': {
+      const { data } = await pbFetch('/api/fieldops/alert-broadcast', {
+        method: 'POST',
+        body: {
+          sessionToken: currentToken(),
+          title: payload.title,
+          body: payload.message || payload.bodyMessage || payload.body,
+          priority: payload.priority,
+          scope: payload.scope,
+          affectsTeam: Boolean(payload.affectsTeam),
+          reassignments: payload.reassignments || []
+        }
+      });
+      if (!data || !data.success) fail(data || {}, 'Alert broadcast failed.');
+      dirCache = null; dirFetchedAt = 0;
+      return { ok: true, notified: data.notified, applied: data.applied };
     }
     case 'adminSetGeofence': {
       const { data } = await pbFetch('/api/fieldops/geofence-set', {
