@@ -285,7 +285,10 @@ export function Home({ session, unread }) {
           <div style={{ margin: '0 16px 12px', padding: '10px 14px', borderRadius: 14, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)' }}>
             <strong style={{ display: 'block', color: '#f59e0b' }}>Checkout photo pending</strong>
             <span className="small">Your auto check-out needs a photo proof.</span>
-            <button type="button" className="m-btn ghost" style={{ marginTop: 8 }} onClick={() => go('attendance')}>Complete photo</button>
+            <button type="button" className="m-btn ghost" style={{ marginTop: 8 }} onClick={() => {
+              if (nativeAvailable()) nativeCall('checkOut');
+              else go('attendance');
+            }}>Complete photo</button>
           </div>
         ) : null}
 

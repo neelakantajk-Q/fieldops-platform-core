@@ -1,5 +1,6 @@
 import { call } from '../api.js';
 import { fieldopsPost } from '../lib/fieldops.js';
+import { todayISO } from '../lib/utils.js';
 import { allowed } from '../nav.js';
 import Notifications from '../pages/Notifications.jsx';
 import LiveMap from '../pages/Map.jsx';
@@ -28,6 +29,20 @@ function jobTone(status) {
   if (status === 'InProgress') return 'primary';
   if (status === 'OnHold' || status === 'HoldRequested') return 'bad';
   return 'warn';
+}
+
+function durationText(minutes) {
+  const m = Number(minutes) || 0;
+  return m > 0 ? `${Math.floor(m / 60)}h ${m % 60}m` : '—';
+}
+
+function attendanceTone(row) {
+  const status = String((row && row.status) || '');
+  if ((row && row.pendingProof) || /proof|mock|reject/i.test(status)) return 'bad';
+  if (/active/i.test(status)) return 'primary';
+  if (/loggedout|verified/i.test(status)) return 'ok';
+  if (/no punch|missing/i.test(status)) return 'warn';
+  return 'neutral';
 }
 
 function elapsed(task) {
@@ -113,29 +128,72 @@ export const MODULES = [
     id: 'attendance', label: 'Attendance', short: 'AT', icon: 'calendar', tone: 'teal', min: 1,
     children: [
       { id: 'today', label: 'Today' },
+      { id: 'hub', label: 'Hub roster' },
       { id: 'active', label: 'Active' },
       { id: 'closed', label: 'Checked out' },
+      { id: 'proof', label: 'Proof pending' },
+      { id: 'history', label: 'History 30d' },
       { id: 'all', label: 'All' }
     ],
     load: async ({ child }) => {
-      const data = await call('getAttendance', {});
+      if (child === 'hub') {
+        const [attendance, users] = await Promise.all([
+          call('getAttendance', { date: todayISO() }),
+          call('getUsers', {})
+        ]);
+        const byUser = {};
+        for (const row of asRows(attendance, 'daily')) byUser[row.userId] = row;
+        return asRows(users, 'users').map((u) => {
+          const row = byUser[u.id] || {};
+          return {
+            ...row,
+            id: u.id,
+            userId: u.id,
+            userName: u.fullName || u.username || u.id,
+            userCode: u.userCode || '',
+            role: u.role || '',
+            hubName: u.hub || u.hubName || row.hubName || '',
+            date: row.date || todayISO(),
+            status: row.status || 'No punch',
+            roster: true
+          };
+        });
+      }
+      const range = child === 'history' || child === 'all'
+        ? { days: 30, pageSize: 500 }
+        : child === 'proof'
+          ? { days: 7, pageSize: 500 }
+          : { date: todayISO() };
+      const data = await call('getAttendance', range);
       const rows = asRows(data, 'daily');
       if (child === 'active') return rows.filter((r) => r.checkIn && !r.checkOut);
       if (child === 'closed') return rows.filter((r) => r.checkOut);
-      return rows;
+      if (child === 'proof') return rows.filter((r) => r.pendingProof);
+      return rows.slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
     },
     card: (r) => ({
-      id: r.userId,
-      title: r.userId || 'Unknown',
-      subtitle: [r.hubName, shortDate(r.date)].filter(Boolean).join(' · ') || 'Attendance',
-      badge: { label: r.status || '—', tone: r.status === 'Active' ? 'primary' : (String(r.status).indexOf('Reject') >= 0 ? 'bad' : 'ok') },
-      meta: [timeOf(r.checkIn), timeOf(r.checkOut)].filter((v) => v !== '—'),
+      id: `${r.userId || 'unknown'}-${r.date || 'today'}-${r.id || ''}`,
+      title: r.userName || r.userId || 'Unknown',
+      subtitle: [r.hubName, r.role, shortDate(r.date)].filter(Boolean).join(' · ') || 'Attendance',
+      badge: {
+        label: r.pendingProof ? 'PROOF' : (r.status || '—'),
+        tone: attendanceTone(r)
+      },
+      meta: [timeOf(r.checkIn), timeOf(r.checkOut), r.roster ? r.userCode : ''].filter((v) => v && v !== '—'),
       facts: [
-        { label: 'Date', value: r.date || '—' },
+        { label: 'User', value: r.userName || r.userId || '—' },
+        { label: 'Role', value: r.role || '—' },
         { label: 'Hub', value: r.hubName || '—' },
+        { label: 'Date', value: r.date || '—' },
         { label: 'Check in', value: timeOf(r.checkIn) },
         { label: 'Check out', value: timeOf(r.checkOut) },
-        { label: 'Duration', value: r.minutes ? `${Math.floor(r.minutes / 60)}h ${r.minutes % 60}m` : '—' }
+        { label: 'Duration', value: durationText(r.minutes) },
+        { label: 'Shift', value: durationText(r.shiftMinutes || r.minutes) },
+        { label: 'Jobs closed', value: r.cardsClosed || 0 },
+        { label: 'Holds', value: r.cardsHeld || 0 },
+        { label: 'Auto', value: r.auto ? 'Yes' : 'No' },
+        { label: 'Mock', value: r.mock ? 'Yes' : 'No' },
+        { label: 'Proof', value: r.pendingProof ? 'Pending' : (r.checkInPhoto || r.checkOutPhoto ? 'Attached' : '—') }
       ]
     })
   },
@@ -379,6 +437,12 @@ export function moduleById(id) {
 export function filterRows(module, child, rows) {
   const list = Array.isArray(rows) ? rows : [];
   if (!child || child === 'all' || !module) return list;
+  if (module.id === 'attendance') {
+    if (child === 'active') return list.filter((r) => r.checkIn && !r.checkOut);
+    if (child === 'closed') return list.filter((r) => r.checkOut);
+    if (child === 'proof') return list.filter((r) => r.pendingProof);
+    return list;
+  }
   if (module.id === 'capa') {
     const OPEN = ['OPEN', 'INVESTIGATING', 'ACTION_PLANNED', 'ACTION_PLANNED', 'IN_PROGRESS'];
     if (child === 'open') return list.filter((r) => OPEN.indexOf(r.status) >= 0);

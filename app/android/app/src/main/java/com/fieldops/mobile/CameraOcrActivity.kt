@@ -312,12 +312,26 @@ class CameraOcrActivity : AppCompatActivity() {
     /** Mandatory photo checkout for every user (technicians and managers). */
     private fun submitCheckout(file: File) {
         val fix = currentFix()
+        val pendingId = intent.getStringExtra("attendanceId").orEmpty()
         thread {
             try {
-                val resp = Api().postAttendance(
-                    "CheckOut", fix.first, fix.second, fix.third, isMock(),
-                    "Photo checkout proof", file, photoField = "checkout_photo"
-                )
+                val resp = if (pendingId.isNotEmpty()) {
+                    try {
+                        Api().completeCheckoutPhoto(pendingId, file)
+                    } catch (e: Api.ApiError) {
+                        if (e.code == 404 || e.code == 400) {
+                            Api().postAttendance(
+                                "CheckOut", fix.first, fix.second, fix.third, isMock(),
+                                "Photo checkout proof", file, photoField = "checkout_photo"
+                            )
+                        } else throw e
+                    }
+                } else {
+                    Api().postAttendance(
+                        "CheckOut", fix.first, fix.second, fix.third, isMock(),
+                        "Photo checkout proof", file, photoField = "checkout_photo"
+                    )
+                }
                 Prefs.checkInDate = ""
                 Prefs.checkInProofAt = 0L
                 Prefs.pendingCheckoutId = ""

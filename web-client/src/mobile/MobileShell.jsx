@@ -85,12 +85,12 @@ export function MobileShell({ session, onAuthChange, unread, online }) {
       <div className="m-viewport">{body}</div>
 
       <nav className="m-tabbar" aria-label="App">
-        <Tab id="explore" label="Explore" icon="grid" active={active === 'explore'} onClick={() => go('explore')} />
+        <Tab id="home" label="Home" icon="home" active={active === 'home'} onClick={() => go('home')} badge={unread} />
         <Tab id="jobs" label="Jobs" icon="briefcase" active={active === 'jobs'} onClick={() => go('jobs')} />
         <button type="button" className="m-fab" onClick={() => setScanOpen(true)} aria-label="Scan">
           <Icon name="scan" size={25} />
         </button>
-        <Tab id="alerts" label="Alerts" icon="bell" active={active === 'notifications'} badge={unread} onClick={() => go('notifications')} />
+        <Tab id="explore" label="Explore" icon="grid" active={active === 'explore'} onClick={() => go('explore')} />
         <Tab id="profile" label="Profile" icon="users" active={active === 'profile'} onClick={() => go('profile')} />
       </nav>
 

@@ -475,25 +475,35 @@ export async function pbCall(action, payload = {}) {
     /* ---- attendance ---- */
     case 'getAttendance': {
       const date = payload.date || todayISO();
+      const shiftDay = (days) => new Date(Date.now() + 19800000 - days * 86400000).toISOString().slice(0, 10);
+      const from = payload.dateFrom || payload.from || (payload.days ? shiftDay(Number(payload.days) - 1) : date);
+      const to = payload.dateTo || payload.to || from || date;
       // IST day grouping: the server hook stamps ist_date (YYYY-MM-DD in IST,
       // UTC+05:30) at capture time. Legacy rows without ist_date fall back to
       // the raw UTC window for that calendar date.
-      let filter = `(ist_date = "${esc(date)}" || (ist_date = "" && timestamp >= "${esc(date)} 00:00:00.000Z" && timestamp <= "${esc(date)} 23:59:59.000Z"))`;
+      let filter = `((ist_date >= "${esc(from)}" && ist_date <= "${esc(to)}") || (ist_date = "" && timestamp >= "${esc(from)} 00:00:00.000Z" && timestamp <= "${esc(to)} 23:59:59.000Z"))`;
       if (payload.userId) {
         const u = await findUserByName(payload.userId);
         if (u) filter += ` && user_id = "${u.id}"`;
       }
-      const res = await list('attendance', { filter, expand: 'user_id', sort: 'timestamp' });
+      const res = await list('attendance', {
+        filter, expand: 'user_id', sort: 'timestamp', perPage: Number(payload.pageSize) || 500
+      });
       const byUser = {};
       for (const r of (res.items || [])) {
-        const uid = (r.expand && r.expand.user_id && r.expand.user_id.username) || r.user_id;
-        const row = byUser[uid] || (byUser[uid] = {
-          date: r.ist_date || (r.timestamp || '').slice(0, 10), userId: uid,
+        const expand = (r.expand && r.expand.user_id) || {};
+        const uid = expand.username || r.user_id;
+        const day = r.ist_date || (r.timestamp || '').slice(0, 10);
+        const key = `${uid}|${day}`;
+        const row = byUser[key] || (byUser[key] = {
+          date: day, userId: uid,
+          userName: [expand.first_name, expand.last_name].filter(Boolean).join(' ').trim() || expand.name || expand.username || r.userName || '',
+          userCode: expand.user_code || r.userCode || '', role: expand.role || r.role || '',
           hubName: r.hub_name || '', checkIn: '', checkOut: '', minutes: 0,
           status: r.status || 'Verified', mock: String(r.status).indexOf('Mock') >= 0,
           checkInPhoto: '', checkOutPhoto: '', auto: false, checkoutReason: '',
           shiftMinutes: 0, jobMinutes: 0, cardsClosed: 0, cardsHeld: 0, holdMinutes: 0,
-          pendingProof: false, pendingProofId: ''
+          pendingProof: false, pendingProofId: '', pendingProofAt: ''
         });
         const ts = r.timestamp ? new Date(String(r.timestamp).replace(' ', 'T')).toISOString() : '';
         if (r.action === 'CheckIn' && !row.checkIn) {
@@ -511,9 +521,11 @@ export async function pbCall(action, payload = {}) {
           row.cardsHeld = Number(r.cards_held) || 0;
           row.holdMinutes = Number(r.hold_minutes) || 0;
         }
-        if (r.photo_pending === true) {
+        if (String(r.status || '').indexOf('Mock') >= 0) row.mock = true;
+        if (r.photo_pending === true && (!row.pendingProof || ts > row.pendingProofAt)) {
           row.pendingProof = true;
           row.pendingProofId = r.id;
+          row.pendingProofAt = ts;
         }
         if (r.action !== 'CheckIn' && r.action !== 'CheckOut' && row.status.indexOf('Rejected') < 0) {
           row.status = r.status;
@@ -523,10 +535,14 @@ export async function pbCall(action, payload = {}) {
         if (row.checkIn) {
           const end = row.checkOut ? new Date(row.checkOut).getTime() : Date.now();
           row.minutes = Math.max(0, Math.round((end - new Date(row.checkIn).getTime()) / 60000));
-          if (!row.checkOut) row.status = 'Active';
         }
+        if (row.status.indexOf('Rejected') >= 0) return;
+        if (row.pendingProof) row.status = 'Proof pending';
+        else if (row.checkIn && !row.checkOut) row.status = 'Active';
+        else if (row.checkOut && !row.checkIn) row.status = 'Missing check-in';
+        else if (row.checkIn && row.checkOut) row.status = 'LoggedOut';
       });
-      return { ok: true, daily: Object.values(byUser) };
+      return { ok: true, date, dateFrom: from, dateTo: to, daily: Object.values(byUser) };
     }
     case 'attendanceCheckIn': {
       const d = await directory();

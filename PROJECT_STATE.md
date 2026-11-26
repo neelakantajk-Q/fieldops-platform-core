@@ -208,18 +208,18 @@ branch (it is when the branch was cut from `main`).
 | 2026-11-26 | Fixed zone backfill: 130 used an empty filter (0 rows); added idempotent 140 safety-net. `node --check` OK. | `backend/pb_migrations/1700000130_region_zone.js`, `backend/pb_migrations/1700000140_backfill_zones.js` | `b4eaafd` | syntax OK; deploy pending |
 | 2026-11-26 | Shipped rich JobDetail + J26 complaint numbering + user First/Last names; live deploy `dep-dc4526bl550s73879kn0` @ `53b12d1`. | backend pb_hooks + pb.js + Jobs/Admin/JobDetail/mobile + migrations + portal assets | `53b12d1` | live |
 | 2026-11-26 | Redeployed `b4eaafd` + docs (`eee51e5`). Verified health 200, admin login, zones persisted after restore (North; South-2=South; South-1=South; East), assets unchanged. | `PROJECT_STATE.md` | `eee51e5` | live `dep-dc4526bl550s73879kn0` |
+| 2026-11-26 | Mobile tabs: Home first, Jobs, scan FAB, Explore replacing Alerts, Profile; rebuilt portal bundle (`index-CdyulsNI.js`) and installed fresh APK on `7d34f6121222`. | `web-client/src/mobile/MobileShell.jsx`, Android portal assets | uncommitted | build OK; APK installed |
+| 2026-11-26 | Attendance/proof fixes: date-range `getAttendance`, 30-day mobile history, hub roster with attendance badges, proof-pending card → native checkout, mandatory photo checkout for pending auto rows, bubble day-pass toast/request flow with real GPS. | `web-client/src/lib/pb.js`, `web-client/src/mobile/tree.js`, `web-client/src/mobile/Home.jsx`, `PortalActivity.kt`, `CameraOcrActivity.kt`, `OverlayBubbleService.kt` | uncommitted | `npm run build` OK; `gradlew assembleDebug` OK; APK installed |
 
 ---
 
 ## 9. Resume point (next steps)
 
-1. ~~Redeploy the zone-backfill fix.~~ **Done** (`eee51e5` live); zones persist.
-2. Add `scripts/verify_live.ps1` (asset hash + health + admin login + directory).
-3. Retire the GitHub Pages workflow; align `KEYS_AND_ACCESS.md`, `HANDOFF.md`,
-   `NEXT_SESSION.md` to the Render-canonical setup.
-4. Confirm the Drive backup env vars are set and a keep-alive pinger is active.
-5. Android: the bundled portal (`app/android/.../assets/portal`) is stale vs the
-   Render build — rebuild the portal bundle/APK when mobile parity is needed.
+1. Log in on the device (`admin` / `admin`) and visually verify the new Home/Explore tab bar, Attendance hub roster/history, proof-pending card and bubble day-pass toast flow.
+2. Commit/push and trigger a Render deploy when ready; live deploy is still `dep-dc4526bl550s73879kn0` @ `eee51e5` with the older bundle.
+3. Add `scripts/verify_live.ps1` (asset hash + health + admin login + directory).
+4. Retire the GitHub Pages workflow; align `KEYS_AND_ACCESS.md`, `HANDOFF.md`, `NEXT_SESSION.md` to the Render-canonical setup.
+5. Confirm the Drive backup env vars are set and a keep-alive pinger is active.
 6. Real accounts vs demo logins: decide before sharing the URL widely.
 
 **Demo data note:** the 4 live regions now have zones (North, South×2, East).

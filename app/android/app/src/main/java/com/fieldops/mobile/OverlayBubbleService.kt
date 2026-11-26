@@ -1,8 +1,10 @@
 package com.fieldops.mobile
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
@@ -27,10 +29,13 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.Tasks
 import kotlin.concurrent.thread
 import java.util.HashSet
 import org.json.JSONObject
-import okhttp3.Request
 
 /**
  * Two floating field bubbles (overlay) driven by the day's proof workflow:
@@ -60,6 +65,7 @@ class OverlayBubbleService : Service() {
     private var timerText: TextView? = null
     private var renderedKey: String = ""
     private var lastRequestTime = System.currentTimeMillis()
+    private val notifiedRoaming = HashSet<String>()
 
     private val ticker = object : Runnable {
         override fun run() {
@@ -131,46 +137,48 @@ class OverlayBubbleService : Service() {
         if (!Prefs.loggedIn) return
         thread {
             try {
-                val st = Api().roamingStatus()
-                Prefs.transitApproved = st.optBoolean("approved")
-                Prefs.transitPending = st.optBoolean("pending")
-
-                // Get pending requests for CURRENT user (any role, not just supervisors)
+                // Get day-pass requests for CURRENT user (any role, not just supervisors)
                 val myRequests = Api().pendingRequests()
                 val live = HashSet<String>()
+                val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT+05:30"))
+                cal.setTimeInMillis(System.currentTimeMillis() + 19800000)
+                val istDate = String.format("%04d-%02d-%02d", cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1, cal.get(java.util.Calendar.DAY_OF_MONTH))
+                var pendingNow = false
+                var approvedNow = false
                 for (i in 0 until myRequests.length()) {
                     val r = myRequests.getJSONObject(i)
                     val id = r.optString("id")
                     if (id.isEmpty()) continue
                     live.add(id)
-                    // Show sticky alert for any pending request
-                    val notifId = Notify.ID_ROAM_BASE + (Math.abs(id.hashCode()) % 100000)
-                    val who = r.optString("username", "technician")
-                    val type = r.optString("request_type", "TRANSIT")
-                    val dist = Math.round(r.optDouble("distance_from_hub_meters", 0.0))
-                    Notify.alert(
-                        this, notifId,
-                        "Transit request - $who",
-                        "$type requested, ${dist}m beyond hub radius. Approve for the whole day?",
-                        listOf(
-                            "APPROVE" to RoamingActionReceiver.pi(this, id, "APPROVED", notifId),
-                            "REJECT" to RoamingActionReceiver.pi(this, id, "REJECTED", notifId)
-                        ),
-                        sticky = true
-                    )
-                }
-
-                // If any request approved today and job not yet started, transition to READY_JOB
-                var anyApproved = false
-                for (i in 0 until myRequests.length()) {
-                    val r = myRequests.getJSONObject(i)
-                    if (r.optString("status") == "APPROVED") {
-                        anyApproved = true
-                        break
+                    if (r.optString("ist_date") != istDate) continue
+                    val status = r.optString("status")
+                    if (status == "PENDING") {
+                        pendingNow = true
+                        if (notifiedRoaming.add(id)) {
+                            val notifId = Notify.ID_ROAM_BASE + (Math.abs(id.hashCode()) % 100000)
+                            val who = r.optString("username", "technician")
+                            val type = r.optString("request_type", "TRANSIT")
+                            val dist = Math.round(r.optDouble("distance_from_hub_meters", 0.0))
+                            Notify.alert(
+                                this, notifId,
+                                "Transit request - $who",
+                                "$type requested, ${dist}m beyond hub radius. Approve for the whole day?",
+                                listOf(
+                                    "APPROVE" to RoamingActionReceiver.pi(this, id, "APPROVED", notifId),
+                                    "REJECT" to RoamingActionReceiver.pi(this, id, "REJECTED", notifId)
+                                ),
+                                sticky = true
+                            )
+                        }
                     }
+                    if (status == "APPROVED") approvedNow = true
                 }
-                if (anyApproved && !(Prefs.jobStartedAt > 0L)) {
-                    Prefs.transitApproved = true
+                notifiedRoaming.retainAll(live)
+                val wasApproved = Prefs.transitApproved
+                Prefs.transitPending = pendingNow
+                Prefs.transitApproved = approvedNow && !(Prefs.jobStartedAt > 0L)
+                if (approvedNow && !wasApproved) {
+                    main.post { toast("Day pass APPROVED - tap START JOB.") }
                 }
 
                 val job = Api().latestOpenJob()
@@ -191,37 +199,6 @@ class OverlayBubbleService : Service() {
                     Prefs.jobOnHold = job.optString("status") == "ON_HOLD"
                 }
 
-                // ------- Roaming request flow -------
-                // Check if user already has a request for today (IST date)
-                val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT+05:30"))
-                cal.setTimeInMillis(System.currentTimeMillis() + 19800000)
-                val istDate = String.format("%04d-%02d-%02d", cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1, cal.get(java.util.Calendar.DAY_OF_MONTH))
-                var existingReq: JSONObject? = null
-                for (i in 0 until myRequests.length()) {
-                    val r = myRequests.getJSONObject(i)
-                    if (r.optString("ist_date") == istDate && r.optString("status") != "APPROVED") {
-                        existingReq = r
-                        break
-                    }
-                }
-
-                if (existingReq != null) {
-                    val reqStatus = existingReq.optString("status")
-                    val reqType = existingReq.optString("request_type")
-                    val reqDist = existingReq.optDouble("distance_from_hub_meters", 0.0)
-                    val reqNotes = existingReq.optString("notes")
-                    if (reqStatus == "PENDING") {
-                        toast("Your transit request is PENDING approval.\n${reqType} requested, ${reqDist}m beyond hub radius.\n${reqNotes.take(80)}")
-                    } else {
-                        toast("Your transit request was REJECTED.\n${reqNotes.take(80)}")
-                    }
-                } else if (System.currentTimeMillis() - lastRequestTime >= 5L * 60L * 1000L) {
-                    toast("Submit transit request for today's day pass?\nYou are beyond hub radius.")
-                } else {
-                    val remaining = 5L * 60L * 1000L - (System.currentTimeMillis() - lastRequestTime)
-                    toast("Wait ${remaining / 60000} more minutes before submitting another request.")
-                }
-                // ---------- end roaming request flow ----------
             } catch (e: Exception) { /* offline — retry next cycle */ }
             main.post { evaluate() }
         }
@@ -230,6 +207,21 @@ class OverlayBubbleService : Service() {
     private fun parseIso(v: String): Long = try {
         java.time.Instant.parse(v).toEpochMilli()
     } catch (e: Exception) { 0L }
+
+    private fun currentFix(): Triple<Double, Double, Double> {
+        try {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED
+            ) {
+                val loc = Tasks.await(
+                    LocationServices.getFusedLocationProviderClient(this)
+                        .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                )
+                if (loc != null) return Triple(loc.latitude, loc.longitude, loc.accuracy.toDouble())
+            }
+        } catch (e: Exception) { }
+        return Triple(Prefs.hubLat, Prefs.hubLng, 9999.0)
+    }
 
     /* --------------------------------------------------------- bubble 1 */
 
@@ -261,13 +253,13 @@ class OverlayBubbleService : Service() {
         val deepColor = if (green) Color.parseColor("#0E9F56") else Color.parseColor("#B45309")
         val label = when (s) {
             Stage.NEED_CHECKIN -> "CHECK IN"
-            Stage.AWAITING_APPROVAL -> "PENDING"
+            Stage.AWAITING_APPROVAL -> "REQUEST"
             Stage.READY_JOB -> "START JOB"
             else -> ""
         }
         val icon = when (s) {
             Stage.NEED_CHECKIN -> android.R.drawable.ic_menu_camera
-            Stage.AWAITING_APPROVAL -> android.R.drawable.ic_menu_recent_history
+            Stage.AWAITING_APPROVAL -> android.R.drawable.ic_menu_send
             else -> android.R.drawable.ic_menu_myplaces
         }
 
@@ -437,27 +429,28 @@ class OverlayBubbleService : Service() {
                 cal.setTimeInMillis(System.currentTimeMillis() + 19800000)
                 val istDate = String.format("%04d-%02d-%02d", cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1, cal.get(java.util.Calendar.DAY_OF_MONTH))
                 var existingReq: JSONObject? = null
+                var lastRejected = false
                 for (i in 0 until myRequests.length()) {
                     val r = myRequests.getJSONObject(i)
-                    if (r.optString("ist_date") == istDate && r.optString("status") != "APPROVED") {
+                    if (r.optString("ist_date") != istDate) continue
+                    val status = r.optString("status")
+                    if (status == "PENDING") {
                         existingReq = r
                         break
                     }
+                    if (status == "REJECTED") lastRejected = true
                 }
 
                 val req = existingReq
                 if (req != null) {
-                    val reqStatus = req.optString("status")
                     val reqType = req.optString("request_type")
                     val reqDist = req.optDouble("distance_from_hub_meters", 0.0)
                     val reqNotes = req.optString("notes")
-                    val msg = if (reqStatus == "PENDING") {
-                        "Your transit request is PENDING approval.\n${reqType} requested, ${reqDist}m beyond hub radius.\n${reqNotes.take(60)}"
-                    } else {
-                        "Your transit request was REJECTED.\n${reqNotes.take(60)}"
+                    main.post {
+                        toast("Transit request is PENDING approval.\n${reqType} requested, ${Math.round(reqDist)}m beyond hub radius.\n${reqNotes.take(60)}")
                     }
-                    main.post { toast(msg) }
                 } else {
+                    if (lastRejected) main.post { toast("Previous day pass was rejected - submitting a new request.") }
                     val fiveMin = 5L * 60L * 1000L
                     val canSubmit = (System.currentTimeMillis() - lastRequestTime) >= fiveMin
                     if (canSubmit) {
@@ -644,33 +637,35 @@ class OverlayBubbleService : Service() {
     private fun submitRoamingRequest() {
         thread {
             try {
-                val st = Api().roamingStatus()
-                val token = st.optString("sessionToken") ?: ""
-                val body = org.json.JSONObject().apply {
-                    put("sessionToken", token)
-                    put("requestType", "TRANSIT")
-                    put("lat", 0.0)
-                    put("lng", 0.0)
-                    put("accuracy", 100.0)
-                    put("notes", "Transit request from field bubble - beyond hub radius")
-                }
-                val resp = Api().call(
-                    Request.Builder()
-                        .url(Api().url("/api/fieldops/roaming-request"))
-                        .post(Api().json(body.toString())).build()
+                val fix = currentFix()
+                val dist = GeoMath.haversineMeters(fix.first, fix.second, Prefs.hubLat, Prefs.hubLng)
+                val resp = Api().requestTransit(
+                    "TRANSIT", fix.first, fix.second, fix.third,
+                    "Transit request from field bubble - ${Math.round(dist)}m from hub"
                 )
-                val data = resp.optJSONObject("data") ?: resp
-                val success = data.optBoolean("success", false)
-                val requestId = data.optString("requestId", "")
-                if (success && !requestId.isEmpty()) {
+                val requestId = resp.optString("requestId").ifEmpty { resp.optString("id") }
+                if (resp.optBoolean("success", false) && requestId.isNotEmpty()) {
                     lastRequestTime = System.currentTimeMillis()
-                    toast("Transit request submitted. Request ID: $requestId. Awaiting supervisor approval.")
-                    evaluate()
+                    when {
+                        resp.optBoolean("alreadyApproved") -> {
+                            Prefs.transitApproved = true
+                            main.post { toast("Day pass already approved - tap START JOB.") }
+                        }
+                        resp.optBoolean("pending") -> {
+                            Prefs.transitPending = true
+                            main.post { toast("Transit request already pending for today.") }
+                        }
+                        else -> {
+                            Prefs.transitPending = true
+                            main.post { toast("Transit request submitted. Awaiting supervisor approval.") }
+                        }
+                    }
+                    main.post { evaluate() }
                 } else {
-                    toast("Failed to submit request: ${data.optString("message", "unknown error")}")
+                    main.post { toast("Failed to submit request: ${resp.optString("message", "unknown error")}") }
                 }
             } catch (e: Exception) {
-                toast("Submit request failed: ${e.message}")
+                main.post { toast("Submit request failed: ${e.message}") }
             }
         }
     }

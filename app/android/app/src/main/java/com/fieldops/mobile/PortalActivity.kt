@@ -242,20 +242,24 @@ class PortalActivity : AppCompatActivity() {
         @JavascriptInterface
         fun checkIn() = startAttendance()
 
-        /** Home "Check out" card → geotagged CheckOut punch. */
+        /** Home "Check out" card → mandatory photo proof, including pending auto rows. */
         @JavascriptInterface
         fun checkOut() {
             thread {
-                val fix = currentFix()
-                try {
-                    Api().postAttendance("CheckOut", fix.first, fix.second, fix.third, false, "Check out", null)
-                    Prefs.checkInDate = ""
-                    runOnUiThread { notifyWeb("checkout", true) }
-                } catch (e: Exception) {
-                    runOnUiThread {
-                        Toast.makeText(this@PortalActivity, "Check out failed: ${e.message}", Toast.LENGTH_LONG).show()
-                        notifyWeb("checkout", false)
-                    }
+                var pendingId = Prefs.pendingCheckoutId
+                if (pendingId.isEmpty()) {
+                    try {
+                        val summary = Api().homeSummary()
+                        pendingId = summary.optJSONObject("attendance")
+                            ?.optJSONObject("pendingProof")?.optString("id").orEmpty()
+                        Prefs.pendingCheckoutId = pendingId
+                    } catch (e: Exception) { }
+                }
+                runOnUiThread {
+                    val intent = Intent(this@PortalActivity, CameraOcrActivity::class.java)
+                        .putExtra("mode", "checkout")
+                    if (pendingId.isNotEmpty()) intent.putExtra("attendanceId", pendingId)
+                    startActivityForResult(intent, REQ_ATTN)
                 }
             }
         }
