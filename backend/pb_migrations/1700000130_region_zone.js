@@ -36,7 +36,7 @@ migrate((db) => {
 
   let rows = [];
   try {
-    rows = dao.findRecordsByFilter("regions", "", "", 500, 0) || [];
+    rows = dao.findRecordsByFilter("regions", "id != ''", "", 500, 0) || [];
   } catch (err) {
     rows = [];
   }
