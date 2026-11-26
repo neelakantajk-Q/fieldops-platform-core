@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { allowed, navItemById } from '../nav.js';
 import { modulesFor, moduleById } from './tree.js';
-import { Home } from './Home.jsx';
+import { Home, Explore } from './Home.jsx';
 import { Profile } from './Profile.jsx';
 import { ModuleScreen, ComingSoon } from './ModuleScreen.jsx';
 import { ScreenFrame } from './ScreenFrame.jsx';
@@ -35,11 +35,13 @@ export function MobileShell({ session, onAuthChange, unread, online }) {
   }, []);
 
   const modules = useMemo(() => modulesFor(session), [session]);
-  const current = route.module === 'home' || route.module === 'profile' ? null : moduleById(route.module);
+  const current = route.module === 'home' || route.module === 'profile' || route.module === 'explore' ? null : moduleById(route.module);
 
   let body;
   if (route.module === 'home') {
     body = <Home session={session} unread={unread} />;
+  } else if (route.module === 'explore') {
+    body = <Explore session={session} />;
   } else if (route.module === 'profile') {
     body = <Profile session={session} onAuthChange={onAuthChange} />;
   } else if (route.module === 'view') {
@@ -83,9 +85,7 @@ export function MobileShell({ session, onAuthChange, unread, online }) {
       <div className="m-viewport">{body}</div>
 
       <nav className="m-tabbar" aria-label="App">
-        {modules.some((m) => m.id === 'performance') ? (
-          <Tab id="performance" label="Performance" icon="chart" active={active === 'performance'} onClick={() => go('performance')} />
-        ) : null}
+        <Tab id="explore" label="Explore" icon="grid" active={active === 'explore'} onClick={() => go('explore')} />
         <Tab id="jobs" label="Jobs" icon="briefcase" active={active === 'jobs'} onClick={() => go('jobs')} />
         <button type="button" className="m-fab" onClick={() => setScanOpen(true)} aria-label="Scan">
           <Icon name="scan" size={25} />

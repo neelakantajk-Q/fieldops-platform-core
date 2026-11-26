@@ -24,7 +24,7 @@ function readCache() {
   return null;
 }
 
-async function loadHome(session) {
+export async function loadHome(session) {
   const results = await Promise.allSettled([
     call('getTasks', { status: '', query: '', page: 1, pageSize: 200 }),
     call('getAttendance', {}),
@@ -34,7 +34,8 @@ async function loadHome(session) {
     call('getAuditLogs', { limit: 6 }),
     fieldopsPost('/api/fieldops/capa/list', {}),
     fieldopsPost('/api/fieldops/billing/list', {}),
-    call('homeSummary', {})
+    call('homeSummary', {}),
+    call('getAnalytics', {})
   ]);
   const pick = (i, key) => {
     const r = results[i];
@@ -56,6 +57,11 @@ async function loadHome(session) {
     ? summaryResult.value
     : null;
 
+  const analyticsResult = results[9];
+  const analytics = analyticsResult && analyticsResult.status === 'fulfilled' && analyticsResult.value
+    ? (analyticsResult.value.analytics || analyticsResult.value)
+    : {};
+
   const mine = (t) => String(t.assignedUserId || '') === String(session.username || '');
   const openJobs = tasks.filter((t) => t.status === 'InProgress' || t.status === 'Delayed' || t.status === 'OnHold');
   const activeJob = openJobs.find(mine) || openJobs[0] || null;
@@ -74,6 +80,14 @@ async function loadHome(session) {
     } : null,
     checkedIn: Boolean(attendance),
     summary,
+    perf: {
+      total: Number(analytics.totalTasks) || tasks.length,
+      completed: Number(analytics.completedTasks) || tasks.filter((t) => t.status === 'Completed').length,
+      open: Number(analytics.openTasks) || openJobs.length,
+      pendingHolds: holds.length,
+      hubWorkload: analytics.hubWorkload || {},
+      engineerProductivity: analytics.engineerProductivity || {}
+    },
     counts: {
       jobs: openJobs.length,
       attendance: daily.filter((d) => d.checkIn && !d.checkOut).length,
@@ -133,8 +147,8 @@ export function Home({ session, unread }) {
   }, []);
 
   const modules = useMemo(() => modulesFor(session), [session]);
+  const canPerf = modules.some((m) => m.id === 'performance');
   const q = query.trim().toLowerCase();
-  const filteredModules = q ? modules.filter((m) => `${m.label} ${m.id}`.toLowerCase().includes(q)) : modules;
   const recommended = (data && data.openJobs ? data.openJobs : [])
     .filter((t) => !q || `${t.jobId} ${t.vehicleNo} ${t.client}`.toLowerCase().includes(q))
     .slice(0, 5);
@@ -145,6 +159,7 @@ export function Home({ session, unread }) {
   const breach = summary && summary.breach;
   const pendingProof = summary && summary.attendance && summary.attendance.pendingProof;
   const kpi = summary && summary.kpi;
+  const perf = (data && data.perf) || null;
   const lastOut = summary && summary.attendance && summary.attendance.lastCheckOut;
   const checkedIn = summary
     ? Boolean(summary.attendance && summary.attendance.checkedIn)
@@ -204,7 +219,7 @@ export function Home({ session, unread }) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search jobs, vehicles, modules"
+            placeholder="Search jobs and vehicles"
             aria-label="Search"
           />
           {query ? <button type="button" className="m-search-clear" onClick={() => setQuery('')} aria-label="Clear">×</button> : null}
@@ -275,26 +290,15 @@ export function Home({ session, unread }) {
         ) : null}
 
         {kpi ? (
-          <section className="m-quick-row" aria-label="Today">
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, padding: '0 16px' }}>
-                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'var(--m-card, rgba(255,255,255,0.06))' }}>
-                  <span className="m-tile-meta">Jobs today</span>
-                  <strong style={{ display: 'block', fontSize: 20 }}>{kpi.jobsToday || 0}</strong>
-                </div>
-                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'var(--m-card, rgba(255,255,255,0.06))' }}>
-                  <span className="m-tile-meta">Closed</span>
-                  <strong style={{ display: 'block', fontSize: 20 }}>{kpi.closedToday || 0}</strong>
-                </div>
-                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'var(--m-card, rgba(255,255,255,0.06))' }}>
-                  <span className="m-tile-meta">Unbilled parts</span>
-                  <strong style={{ display: 'block', fontSize: 20 }}>{kpi.unbilledParts || 0}</strong>
-                </div>
-                <div style={{ padding: '10px 12px', borderRadius: 14, background: 'var(--m-card, rgba(255,255,255,0.06))' }}>
-                  <span className="m-tile-meta">Alerts</span>
-                  <strong style={{ display: 'block', fontSize: 20 }}>{kpi.unreadAlerts || 0}</strong>
-                </div>
-              </div>
+          <section className="m-section" aria-label="Today">
+            <div className="m-section-head">
+              <h3>Today at a glance</h3>
+            </div>
+            <div className="m-stats">
+              <div className="m-stat blue"><span>Jobs today</span><strong>{kpi.jobsToday || 0}</strong></div>
+              <div className="m-stat green"><span>Closed</span><strong>{kpi.closedToday || 0}</strong></div>
+              <div className="m-stat orange"><span>Unbilled parts</span><strong>{kpi.unbilledParts || 0}</strong></div>
+              <div className="m-stat rose"><span>Alerts</span><strong>{kpi.unreadAlerts || 0}</strong></div>
             </div>
           </section>
         ) : null}
@@ -326,25 +330,25 @@ export function Home({ session, unread }) {
 
         <section className="m-section">
           <div className="m-section-head">
-            <h3>Explore</h3>
-            <span className="m-section-sub">{filteredModules.length} modules</span>
+            <h3>Performance</h3>
+            {canPerf ? <button type="button" className="m-link" onClick={() => go('performance')}>Full report</button> : null}
           </div>
-          {filteredModules.length ? (
-            <div className="m-tiles">
-              {filteredModules.map((m) => (
-                <button key={m.id} type="button" className={`m-tile t-${m.tone}`} onClick={() => go(m.id)}>
-                  <span className="m-tile-top">
-                    <span className="m-tile-ico"><Icon name={m.icon} size={20} /></span>
-                    {m.soon ? <span className="m-soon">Soon</span> : null}
-                  </span>
-                  <span className="m-tile-label">{m.label}</span>
-                  <span className="m-tile-meta">{countText(m.id, data && data.counts, m.soon)}</span>
-                </button>
-              ))}
+          <div className="m-stats">
+            <div className="m-stat blue"><span>Total jobs</span><strong>{perf ? perf.total : '—'}</strong></div>
+            <div className="m-stat green"><span>Completed</span><strong>{perf ? perf.completed : '—'}</strong></div>
+            <div className="m-stat orange"><span>Open / delayed</span><strong>{perf ? perf.open : '—'}</strong></div>
+            <div className="m-stat rose"><span>Pending holds</span><strong>{perf ? perf.pendingHolds : '—'}</strong></div>
+          </div>
+          <div className="m-perf-cols">
+            <div className="m-card-block">
+              <h4>Hub load</h4>
+              <MiniBars data={perf && perf.hubWorkload} tone="#0284c7" empty="No hub workload yet." />
             </div>
-          ) : (
-            <div className="m-empty">No modules match “{query}”.</div>
-          )}
+            <div className="m-card-block">
+              <h4>Peer productivity</h4>
+              <MiniBars data={perf && perf.engineerProductivity} tone="#16a34a" empty="No peer data yet." />
+            </div>
+          </div>
         </section>
 
         <section className="m-section">
@@ -407,6 +411,94 @@ export function Home({ session, unread }) {
       </div>
 
       <OdoSheet open={odoOpen} onClose={() => setOdoOpen(false)} onConfirm={confirmOdo} />
+    </div>
+  );
+}
+
+function MiniBars({ data, tone, empty }) {
+  const rows = Object.entries(data || {}).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  if (!rows.length) return <div className="m-empty" style={{ margin: 0 }}>{empty}</div>;
+  const max = rows[0][1] || 1;
+  return (
+    <div className="m-barlist">
+      {rows.map(([name, value]) => (
+        <div className="m-bar-row" key={name}>
+          <span className="m-bar-name">{name}</span>
+          <span className="m-bar-track">
+            <span className="m-bar-fill" style={{ width: `${Math.max(6, Math.round(100 * value / max))}%`, background: tone }} />
+          </span>
+          <b className="m-bar-val">{value}</b>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function Explore({ session }) {
+  const [data, setData] = useState(() => readCache());
+  const [loading, setLoading] = useState(!data);
+  const [query, setQuery] = useState('');
+  const [nonce, setNonce] = useState(0);
+
+  useEffect(() => {
+    let live = true;
+    setLoading(!data);
+    loadHome(session)
+      .then((next) => {
+        if (!live) return;
+        setData(next);
+        setLoading(false);
+        try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), data: next })); } catch (_) { /* ignore */ }
+      })
+      .catch(() => live && setLoading(false));
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nonce]);
+
+  const modules = useMemo(() => modulesFor(session), [session]);
+  const q = query.trim().toLowerCase();
+  const list = q ? modules.filter((m) => `${m.label} ${m.id}`.toLowerCase().includes(q)) : modules;
+
+  return (
+    <div className="m-page">
+      <header className="m-page-head">
+        <div className="m-page-title">
+          <h1>Explore</h1>
+          <span>{modules.length} modules · all your field tools</span>
+        </div>
+        <button type="button" className="m-icon-btn" onClick={() => setNonce((n) => n + 1)} aria-label="Refresh">
+          <Icon name="refresh" size={18} />
+        </button>
+      </header>
+
+      <label className="m-search compact">
+        <Icon name="search" size={17} />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search modules" aria-label="Search modules" />
+        {query ? <button type="button" className="m-search-clear" onClick={() => setQuery('')} aria-label="Clear">×</button> : null}
+      </label>
+
+      <div className="m-scroll list">
+        {loading && !data ? (
+          <div className="m-tiles" style={{ padding: '10px 14px 0' }}>
+            {[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="m-skel" style={{ height: 104, borderRadius: 16 }} />)}
+          </div>
+        ) : list.length ? (
+          <div className="m-tiles" style={{ padding: '10px 14px 0' }}>
+            {list.map((m) => (
+              <button key={m.id} type="button" className={`m-tile t-${m.tone}`} onClick={() => go(m.id)}>
+                <span className="m-tile-top">
+                  <span className="m-tile-ico"><Icon name={m.icon} size={20} /></span>
+                  {m.soon ? <span className="m-soon">Soon</span> : null}
+                </span>
+                <span className="m-tile-label">{m.label}</span>
+                <span className={`m-tile-count c-${m.tone}`}>{countText(m.id, data && data.counts, m.soon)}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="m-empty" style={{ margin: '10px 14px 0' }}>No modules match “{query}”.</div>
+        )}
+      </div>
     </div>
   );
 }

@@ -54,10 +54,10 @@ export default function Performance({ session }) {
       {perf.error ? <div className="hint-banner" style={{ marginBottom: 16 }}>{perf.error.message}</div> : null}
 
       <div className="kpi-grid" style={{ marginBottom: 16 }}>
-        <Stat label="Total jobs" value={total} hint="All job cards in scope" icon="TOT" />
-        <Stat label="Completed" value={done} hint={`${total ? Math.round(100 * done / total) : 0}% completion rate`} tone="green" icon="DONE" />
-        <Stat label="Open / delayed" value={Number(a.openTasks) || 0} hint="In progress and open" tone="blue" icon="OPEN" />
-        <Stat label="Pending holds" value={pendingHolds} hint="Awaiting supervisor" tone="amber" icon="HOLD" />
+        <Stat label="Total jobs" value={total} hint="All job cards in scope" tone="info" icon="TOT" />
+        <Stat label="Completed" value={done} hint={`${total ? Math.round(100 * done / total) : 0}% completion rate`} tone="ok" icon="DONE" />
+        <Stat label="Open / delayed" value={Number(a.openTasks) || 0} hint="In progress and open" tone="warn" icon="OPEN" />
+        <Stat label="Pending holds" value={pendingHolds} hint="Awaiting supervisor" tone="bad" icon="HOLD" />
       </div>
 
       <div className="grid cols-2">
