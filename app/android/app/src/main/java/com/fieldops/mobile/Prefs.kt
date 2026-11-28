@@ -166,6 +166,11 @@ object Prefs {
         get() = sp.getBoolean("transitPending", false)
         set(v) = sp.edit().putBoolean("transitPending", v).apply()
 
+    /** IST date of the cached day-pass state (resets across midnight). */
+    var transitDate: String
+        get() = sp.getString("transitDate", "") ?: ""
+        set(v) = put("transitDate", v)
+
     var hubDistance: Double
         get() = java.lang.Double.longBitsToDouble(sp.getLong("hubDistance", 0L))
         set(v) = sp.edit().putLong("hubDistance", java.lang.Double.doubleToRawLongBits(v)).apply()
@@ -187,6 +192,7 @@ object Prefs {
         jobOnHold = false
         transitApproved = false
         transitPending = false
+        transitDate = ""
     }
 
     val deviceUUID: String by lazy {

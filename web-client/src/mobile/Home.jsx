@@ -62,10 +62,11 @@ export async function loadHome(session) {
     ? (analyticsResult.value.analytics || analyticsResult.value)
     : {};
 
-  const mine = (t) => String(t.assignedUserId || '') === String(session.username || '');
+  const meId = String(session.userId || session.username || '');
+  const mine = (t) => String(t.assignedUserId || '') === meId || String(t.assignedUserId || '') === String(session.username || '');
   const openJobs = tasks.filter((t) => t.status === 'InProgress' || t.status === 'Delayed' || t.status === 'OnHold');
   const activeJob = openJobs.find(mine) || openJobs[0] || null;
-  const attendance = daily.find((d) => String(d.userId) === String(session.username || '') && d.checkIn && !d.checkOut);
+  const attendance = daily.find((d) => (String(d.userId) === meId || String(d.userId) === String(session.username || '')) && d.checkIn && !d.checkOut);
 
   return {
     tasks,
@@ -78,7 +79,7 @@ export async function loadHome(session) {
       startTime: activeJob.startTime,
       complaintNo: activeJob.complaintNo
     } : null,
-    checkedIn: Boolean(attendance),
+    checkedIn: Boolean(attendance) || Boolean(summary && summary.checkedIn),
     summary,
     perf: {
       total: Number(analytics.totalTasks) || tasks.length,

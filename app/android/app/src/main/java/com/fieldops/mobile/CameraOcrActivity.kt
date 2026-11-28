@@ -289,6 +289,19 @@ class CameraOcrActivity : AppCompatActivity() {
 
     /* ------------------------------------------------------------- submit */
 
+    /**
+     * Durable copy in Google Drive. Returns (url, fileId) or ("","") when the
+     * upload is unavailable — the punch still goes through with the PB file.
+     */
+    private fun durableUpload(file: File, kind: String): Pair<String, String> {
+        return try {
+            val r = Api().uploadMedia(file, kind)
+            if (r.optBoolean("success")) {
+                Pair(r.optString("url"), r.optString("fileId"))
+            } else Pair("", "")
+        } catch (e: Exception) { Pair("", "") }
+    }
+
     private fun submit() {
         val file = capturedFile
         if (file == null) {
@@ -314,22 +327,27 @@ class CameraOcrActivity : AppCompatActivity() {
         val fix = currentFix()
         val pendingId = intent.getStringExtra("attendanceId").orEmpty()
         thread {
+            val (photoUrl, photoFileId) = durableUpload(file, "checkout")
+            val url = photoUrl.ifEmpty { null }
+            val fid = photoFileId.ifEmpty { null }
             try {
                 val resp = if (pendingId.isNotEmpty()) {
                     try {
-                        Api().completeCheckoutPhoto(pendingId, file)
+                        Api().completeCheckoutPhoto(pendingId, file, url, fid)
                     } catch (e: Api.ApiError) {
                         if (e.code == 404 || e.code == 400) {
                             Api().postAttendance(
                                 "CheckOut", fix.first, fix.second, fix.third, isMock(),
-                                "Photo checkout proof", file, photoField = "checkout_photo"
+                                "Photo checkout proof", file, photoField = "checkout_photo",
+                                photoUrl = url, photoFileId = fid
                             )
                         } else throw e
                     }
                 } else {
                     Api().postAttendance(
                         "CheckOut", fix.first, fix.second, fix.third, isMock(),
-                        "Photo checkout proof", file, photoField = "checkout_photo"
+                        "Photo checkout proof", file, photoField = "checkout_photo",
+                        photoUrl = url, photoFileId = fid
                     )
                 }
                 Prefs.checkInDate = ""
@@ -375,14 +393,21 @@ class CameraOcrActivity : AppCompatActivity() {
     private fun submitAttendance(file: File) {
         thread {
             val fix = currentFix()
+            val (photoUrl, photoFileId) = durableUpload(file, "attendance")
+            val url = photoUrl.ifEmpty { null }
+            val fid = photoFileId.ifEmpty { null }
             try {
                 val resp = Api().postAttendance(
                     "CheckIn", fix.first, fix.second, fix.third,
-                    isMock(), "Photo attendance proof", file
+                    isMock(), "Photo attendance proof", file,
+                    photoUrl = url, photoFileId = fid
                 )
                 Prefs.checkInDate = Api.istToday()
                 Prefs.checkInProofAt = System.currentTimeMillis()
-                Prefs.hubDistance = GeoMath.haversineMeters(fix.first, fix.second, Prefs.hubLat, Prefs.hubLng)
+                val dist = GeoMath.haversineMeters(fix.first, fix.second, Prefs.hubLat, Prefs.hubLng)
+                Prefs.hubDistance = dist
+                Prefs.lastZone = if (Prefs.geofenceUnlimited) "INSIDE"
+                    else GeoMath.zone(dist, Prefs.hubRadius, Prefs.bufferMeters)
                 runOnUiThread {
                     Toast.makeText(
                         this,
@@ -406,10 +431,11 @@ class CameraOcrActivity : AppCompatActivity() {
                             .setMessage(
                                 "Attendance proof is " + Math.round(distance) +
                                 " m from hub (allowed " + Math.round(Prefs.hubRadius) + " m). " +
+                                (if (url != null) "Photo saved to cold storage. " else "") +
                                 "Submit an on-duty (roaming) request for manager approval?"
                             )
                             .setPositiveButton("SUBMIT ON DUTY") { _, _ ->
-                                thread { requestTransit(fix) }
+                                thread { requestTransit(fix, url ?: "", fid ?: "") }
                             }
                             .setNegativeButton("CANCEL") { _, _ ->
                                 fail("Submit failed: ${e.message}")
@@ -426,12 +452,19 @@ class CameraOcrActivity : AppCompatActivity() {
     }
 
     /** Out-of-radius attendance: automatically raise the roaming day-pass request. */
-    private fun requestTransit(fix: Triple<Double, Double, Double>) {
+    private fun requestTransit(
+        fix: Triple<Double, Double, Double>,
+        photoUrl: String = "",
+        photoFileId: String = ""
+    ) {
         try {
             val resp = Api().requestTransit(
                 "PUNCH_IN", fix.first, fix.second, fix.third,
                 "Out-of-radius photo attendance - " +
-                        "${Math.round(GeoMath.haversineMeters(fix.first, fix.second, Prefs.hubLat, Prefs.hubLng))}m from hub"
+                        "${Math.round(GeoMath.haversineMeters(fix.first, fix.second, Prefs.hubLat, Prefs.hubLng))}m from hub",
+                photoUrl = photoUrl.ifEmpty { null },
+                photoFileId = photoFileId.ifEmpty { null },
+                purpose = "ATTENDANCE"
             )
             Prefs.transitPending = true
             val alreadyApproved = resp.optBoolean("alreadyApproved")

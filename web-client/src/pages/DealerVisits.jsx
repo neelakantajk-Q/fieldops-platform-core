@@ -35,6 +35,7 @@ export default function DealerVisits({ session }) {
   const columns = [
     { key: 'visitNo', label: 'Visit', render: (r) => <strong>{r.visitNo || '—'}</strong> },
     { key: 'dealerName', label: 'Dealer', render: (r) => r.dealerName || r.dealerId },
+    { key: 'dealerPhone', label: 'Dealer phone', render: (r) => r.dealerPhone || '' },
     { key: 'mode', label: 'Mode', render: (r) => <span className="badge neutral">{MODE_LABEL[r.mode] || r.mode || '—'}</span> },
     { key: 'checkInAt', label: 'Check-in', render: (r) => shortTime(r.checkInAt) },
     { key: 'checkOutAt', label: 'Check-out', render: (r) => shortTime(r.checkOutAt) },
@@ -61,7 +62,7 @@ export default function DealerVisits({ session }) {
     <>
       <PageHeader
         title="Dealer Visits"
-        subtitle="Manager dealer visits with code / QR / manual verification and geofence proof"
+        subtitle="Manager dealer visits with code / QR / manual verification and geofence proof. SMS delivery is Android-app native only."
         actions={
           <div className="row">
             <Btn size="sm" variant="ghost" onClick={async () => {

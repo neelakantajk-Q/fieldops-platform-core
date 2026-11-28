@@ -200,6 +200,10 @@
 .m-fact span { display: block; font-size: 9.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 800; }
 .m-fact strong { display: block; font-size: 12px; font-weight: 700; color: var(--ink); margin-top: 2px; word-break: break-word; }
 .m-note { margin-top: 12px; font-size: 11px; color: #a16207; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 9px 10px; line-height: 1.45; }
+.m-proof { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.m-proof-item { display: flex; flex-direction: column; gap: 4px; width: 104px; text-decoration: none; }
+.m-proof-item img { width: 104px; height: 104px; object-fit: cover; border-radius: 12px; border: 1px solid var(--line); background: #f2f5fb; }
+.m-proof-item span { font-size: 9.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 800; text-align: center; }
 .m-sheet-actions { display: flex; gap: 8px; margin-top: 16px; }
 .m-sheet-actions .m-btn { flex: 1; }
 @keyframes m-rise { from { transform: translateY(28px); opacity: .5; } to { transform: none; opacity: 1; } }

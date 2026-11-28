@@ -264,6 +264,31 @@ routerAdd("POST", "/api/fieldops/repair/:action", (c) => {
         return c.json(200, { success: true, item: shape(rec) });
     }
 
+    if (action === "find-job") {
+        if (rank < 2) { return c.json(403, { success: false, code: "FORBIDDEN", message: "Supervisor role or above required." }); }
+        const faultRaw = String(body.fault || body.issueDescription || body.defectDescription || "").trim();
+        const fault = String(faultRaw || "").toLowerCase();
+        const vehicleId = String(body.vehicleId || "");
+        const vin = String(body.vin || "").trim().toUpperCase();
+        const plate = String(body.plate || "").trim().toUpperCase();
+        let vehicle = null;
+        if (vehicleId) { try { vehicle = dao.findRecordById("vehicles", vehicleId); } catch (err) { vehicle = null; } }
+        else if (vin) { try { const rows = dao.findRecordsByFilter("vehicles", "vin = {:v}", "", 10, 0, { v: vin }); vehicle = rows && rows.length ? rows[0] : null; } catch (err) { vehicle = null; } }
+        else if (plate) { try { const rows = dao.findRecordsByFilter("vehicles", "plate_no = {:p}", "", 10, 0, { p: plate }); vehicle = rows && rows.length ? rows[0] : null; } catch (err) { vehicle = null; } }
+        if (!vehicle) { return c.json(404, { success: false, code: "NOT_FOUND", message: "Vehicle not found." }); }
+        const vid = String(vehicle.id || "");
+        let jobs = [];
+        try { jobs = dao.findRecordsByFilter("job_cards", "vehicle_id = {:v}", "-updated", 50, 0, { v: vid }) || []; } catch (err) { jobs = []; }
+        const openJobs = jobs.filter((j) => { const s = String(j.status || ""); return s === "OPEN" || s === "IN_PROGRESS" || s === "ON_HOLD"; });
+        const pool = openJobs.length ? openJobs : jobs;
+        let matched = null;
+        if (fault) { const f = String(fault).toLowerCase(); matched = (pool || []).find((j) => { const text = [j.service_notes, j.checklist, j.remarks].join(" ").toLowerCase(); return text.indexOf(f) >= 0; }) || null; }
+        let jobCardId = matched ? String(matched.id) : (pool.length ? String(pool[0].id) : "");
+        let jobCode = "";
+        if (jobCardId) { try { jobCode = String(dao.findRecordById("job_cards", jobCardId).job_code || ""); } catch (err) { jobCode = ""; } }
+        return c.json(200, { success: true, vehicleId: vid, vin: String(vehicle.vin || ""), plate: String(vehicle.plate_no || ""), jobCardId: jobCardId, jobCode: jobCode, fault: fault });
+    }
+
     return c.json(404, { success: false, code: "NOT_FOUND", message: "Unknown repair action." });
 });
 

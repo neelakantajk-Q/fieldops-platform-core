@@ -65,6 +65,7 @@ class OverlayBubbleService : Service() {
     private var timerText: TextView? = null
     private var renderedKey: String = ""
     private var lastRequestTime = System.currentTimeMillis()
+    private var outsideTicks = 0
     private val notifiedRoaming = HashSet<String>()
 
     private val ticker = object : Runnable {
@@ -114,15 +115,27 @@ class OverlayBubbleService : Service() {
     private fun evaluate() {
         val today = Api.istToday()
         if (Prefs.checkInDate.isNotEmpty() && Prefs.checkInDate != today) Prefs.resetDayFlow()
+        if (Prefs.transitDate.isNotEmpty() && Prefs.transitDate != today) {
+            Prefs.transitApproved = false
+            Prefs.transitPending = false
+            Prefs.transitDate = ""
+        }
 
         val jobActive = Prefs.jobStartedAt > 0L
-        val inside = Prefs.lastZone.equals("INSIDE", true)
+        // BUFFER is the hysteresis band (radius..radius+buffer): treat it as
+        // safe. Only a sustained OUTSIDE reading counts as "away", so GPS
+        // jitter cannot flip START JOB <-> REQUEST every second.
+        val safeZone = Prefs.lastZone.equals("INSIDE", true) || Prefs.lastZone.equals("BUFFER", true)
+        if (safeZone) outsideTicks = 0 else outsideTicks = (outsideTicks + 1).coerceAtMost(100)
+        val away = !safeZone && outsideTicks >= 2
         val next = when {
             jobActive && Prefs.jobOnHold -> Stage.ON_HOLD
             jobActive -> Stage.JOB_ACTIVE
             !Prefs.checkedInToday -> Stage.NEED_CHECKIN
-            Prefs.transitApproved || inside -> Stage.READY_JOB
-            else -> Stage.AWAITING_APPROVAL
+            Prefs.transitApproved || safeZone -> Stage.READY_JOB
+            Prefs.transitPending -> Stage.AWAITING_APPROVAL
+            away -> Stage.AWAITING_APPROVAL
+            else -> Stage.READY_JOB
         }
         val key = next.name + "|" + Prefs.jobPlate
         if (next != stage || key != renderedKey) {
@@ -137,23 +150,34 @@ class OverlayBubbleService : Service() {
         if (!Prefs.loggedIn) return
         thread {
             try {
-                // Get day-pass requests for CURRENT user (any role, not just supervisors)
-                val myRequests = Api().pendingRequests()
-                val live = HashSet<String>()
-                val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT+05:30"))
-                cal.setTimeInMillis(System.currentTimeMillis() + 19800000)
-                val istDate = String.format("%04d-%02d-%02d", cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1, cal.get(java.util.Calendar.DAY_OF_MONTH))
-                var pendingNow = false
-                var approvedNow = false
-                for (i in 0 until myRequests.length()) {
-                    val r = myRequests.getJSONObject(i)
-                    val id = r.optString("id")
-                    if (id.isEmpty()) continue
-                    live.add(id)
-                    if (r.optString("ist_date") != istDate) continue
-                    val status = r.optString("status")
-                    if (status == "PENDING") {
-                        pendingNow = true
+                // Own day-pass state comes from roaming-status (per user). The
+                // company queue is only for supervisor notifications — using it
+                // here reset transitApproved for everyone else on every poll.
+                val st = Api().roamingStatus()
+                val approvedNow = st.optBoolean("approved")
+                val pendingNow = st.optBoolean("pending")
+                val wasApproved = Prefs.transitApproved
+                Prefs.transitPending = pendingNow
+                Prefs.transitApproved = approvedNow
+                Prefs.transitDate = Api.istToday()
+                if (approvedNow) {
+                    if (Prefs.checkInDate.isEmpty()) Prefs.checkInDate = Api.istToday()
+                    if (!wasApproved) main.post { toast("Day pass APPROVED - tap START JOB.") }
+                }
+
+                val RANKS = mapOf(
+                    "Technician" to 1, "Supervisor" to 2, "Moderator" to 3,
+                    "Administrator" to 4, "Platform" to 99
+                )
+                if ((RANKS[Prefs.role] ?: 0) >= 2) {
+                    val myRequests = Api().pendingRequests()
+                    val live = HashSet<String>()
+                    for (i in 0 until myRequests.length()) {
+                        val r = myRequests.getJSONObject(i)
+                        val id = r.optString("id")
+                        if (id.isEmpty()) continue
+                        live.add(id)
+                        if (r.optString("status") != "PENDING") continue
                         if (notifiedRoaming.add(id)) {
                             val notifId = Notify.ID_ROAM_BASE + (Math.abs(id.hashCode()) % 100000)
                             val who = r.optString("username", "technician")
@@ -171,14 +195,7 @@ class OverlayBubbleService : Service() {
                             )
                         }
                     }
-                    if (status == "APPROVED") approvedNow = true
-                }
-                notifiedRoaming.retainAll(live)
-                val wasApproved = Prefs.transitApproved
-                Prefs.transitPending = pendingNow
-                Prefs.transitApproved = approvedNow && !(Prefs.jobStartedAt > 0L)
-                if (approvedNow && !wasApproved) {
-                    main.post { toast("Day pass APPROVED - tap START JOB.") }
+                    notifiedRoaming.retainAll(live)
                 }
 
                 val job = Api().latestOpenJob()
@@ -264,10 +281,10 @@ class OverlayBubbleService : Service() {
         }
 
         val container = FrameLayout(this)
-        container.layoutParams = FrameLayout.LayoutParams(dp(78), dp(78))
+        container.layoutParams = FrameLayout.LayoutParams(dp(96), dp(96))
 
         val ring = View(this).apply {
-            layoutParams = FrameLayout.LayoutParams(dp(74), dp(74)).apply { gravity = Gravity.CENTER }
+            layoutParams = FrameLayout.LayoutParams(dp(92), dp(92)).apply { gravity = Gravity.CENTER }
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(if (green) 0x1525D366 else 0x26F59E0B)
@@ -288,7 +305,7 @@ class OverlayBubbleService : Service() {
         val circle = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = FrameLayout.LayoutParams(dp(62), dp(62)).apply { gravity = Gravity.CENTER }
+            layoutParams = FrameLayout.LayoutParams(dp(80), dp(80)).apply { gravity = Gravity.CENTER }
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR, intArrayOf(mainColor, deepColor)
             ).apply {
@@ -301,14 +318,26 @@ class OverlayBubbleService : Service() {
         circle.addView(ImageView(this).apply {
             setImageResource(icon)
             setColorFilter(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(dp(20), dp(20))
+            layoutParams = LinearLayout.LayoutParams(dp(22), dp(22))
         })
         circle.addView(TextView(this).apply {
             text = label
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f)
             typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.04f
+            letterSpacing = 0.02f
+            gravity = Gravity.CENTER
+            isSingleLine = false
+            maxLines = 2
+            includeFontPadding = false
+            setPadding(dp(3), 0, dp(3), 0)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            if (Build.VERSION.SDK_INT >= 26) {
+                setAutoSizeTextTypeUniformWithConfiguration(7, 10, 1, TypedValue.COMPLEX_UNIT_SP)
+            }
         })
 
         container.addView(ring)
@@ -424,43 +453,38 @@ class OverlayBubbleService : Service() {
     private fun checkPendingRequest() {
         thread {
             try {
-                val myRequests = Api().pendingRequests()
-                val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT+05:30"))
-                cal.setTimeInMillis(System.currentTimeMillis() + 19800000)
-                val istDate = String.format("%04d-%02d-%02d", cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1, cal.get(java.util.Calendar.DAY_OF_MONTH))
-                var existingReq: JSONObject? = null
-                var lastRejected = false
-                for (i in 0 until myRequests.length()) {
-                    val r = myRequests.getJSONObject(i)
-                    if (r.optString("ist_date") != istDate) continue
-                    val status = r.optString("status")
-                    if (status == "PENDING") {
-                        existingReq = r
-                        break
+                val st = Api().roamingStatus()
+                if (st.optBoolean("approved")) {
+                    Prefs.transitApproved = true
+                    Prefs.transitPending = false
+                    Prefs.transitDate = Api.istToday()
+                    if (Prefs.checkInDate.isEmpty()) Prefs.checkInDate = Api.istToday()
+                    main.post {
+                        evaluate()
+                        toast("Day pass APPROVED - tap START JOB.")
                     }
-                    if (status == "REJECTED") lastRejected = true
+                    return@thread
+                }
+                if (st.optBoolean("pending")) {
+                    Prefs.transitPending = true
+                    Prefs.transitDate = Api.istToday()
+                    val reqType = st.optString("request_type", "PUNCH_IN")
+                    main.post {
+                        evaluate()
+                        toast("Transit request is PENDING approval ($reqType).")
+                    }
+                    return@thread
                 }
 
-                val req = existingReq
-                if (req != null) {
-                    val reqType = req.optString("request_type")
-                    val reqDist = req.optDouble("distance_from_hub_meters", 0.0)
-                    val reqNotes = req.optString("notes")
-                    main.post {
-                        toast("Transit request is PENDING approval.\n${reqType} requested, ${Math.round(reqDist)}m beyond hub radius.\n${reqNotes.take(60)}")
-                    }
+                // No live request for today: submit one, respecting the cooldown.
+                val fiveMin = 5L * 60L * 1000L
+                val canSubmit = (System.currentTimeMillis() - lastRequestTime) >= fiveMin
+                if (canSubmit) {
+                    submitRoamingRequest()
                 } else {
-                    if (lastRejected) main.post { toast("Previous day pass was rejected - submitting a new request.") }
-                    val fiveMin = 5L * 60L * 1000L
-                    val canSubmit = (System.currentTimeMillis() - lastRequestTime) >= fiveMin
-                    if (canSubmit) {
-                        submitRoamingRequest()
-                    } else {
-                        val remaining = fiveMin - (System.currentTimeMillis() - lastRequestTime)
-                        main.post { toast("Wait ${remaining / 60000} more minutes before submitting another request.") }
-                    }
+                    val remaining = fiveMin - (System.currentTimeMillis() - lastRequestTime)
+                    main.post { toast("Wait ${remaining / 60000} more minutes before submitting another request.") }
                 }
-                pollNow()
             } catch (e: Exception) {
                 main.post { toast("Status check failed: ${e.message ?: e.javaClass.simpleName}") }
             }
@@ -483,9 +507,8 @@ class OverlayBubbleService : Service() {
     private fun renderBubble2(s: Stage) {
         val root = bubble2 ?: return
         root.removeAllViews()
-        val visible = s == Stage.READY_JOB || s == Stage.JOB_ACTIVE || s == Stage.ON_HOLD
-        root.visibility = if (visible) View.VISIBLE else View.GONE
-        if (!visible) return
+        val safe = s == Stage.READY_JOB || s == Stage.JOB_ACTIVE || s == Stage.ON_HOLD
+        root.visibility = View.VISIBLE
 
         val container = FrameLayout(this)
         container.layoutParams = FrameLayout.LayoutParams(dp(70), dp(70))
@@ -522,13 +545,13 @@ class OverlayBubbleService : Service() {
             elevation = 16f
         }
         circle.addView(TextView(this).apply {
-            text = "✓"
+            text = if (safe) "✓" else "☰"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
             typeface = Typeface.DEFAULT_BOLD
         })
         circle.addView(TextView(this).apply {
-            text = "SAFE"
+            text = if (safe) "SAFE" else "MENU"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f)
             typeface = Typeface.DEFAULT_BOLD
@@ -540,12 +563,16 @@ class OverlayBubbleService : Service() {
         root.addView(container)
         params2?.let { p ->
             root.setOnTouchListener(dragListener(root, p, onTap = {
-                val dist = Math.round(Prefs.hubDistance)
-                toast(
-                    if (Prefs.transitApproved) "SAFE · day pass approved · last hub distance ${dist}m"
-                    else "SAFE · inside hub radius · last distance ${dist}m"
-                )
-            }))
+                if (safe) {
+                    val dist = Math.round(Prefs.hubDistance)
+                    toast(
+                        if (Prefs.transitApproved) "SAFE · day pass approved · last hub distance ${dist}m"
+                        else "SAFE · inside hub radius · last distance ${dist}m"
+                    )
+                } else {
+                    toast("Field actions — long-press for check in/out, day pass, jobs, attendance.")
+                }
+            }, onLongPress = { openBubble2Menu() }))
         }
     }
 
@@ -594,6 +621,39 @@ class OverlayBubbleService : Service() {
         try { dialog.show() } catch (e: Exception) { toast("Cannot open dialog over other apps.") }
     }
 
+    private fun openBubble2Menu() {
+        val checkLabel = if (Prefs.checkedInToday) "CHECK OUT" else "CHECK IN"
+        val items = arrayOf(
+            checkLabel,
+            "DAY-PASS STATUS",
+            "OPEN JOBS",
+            "OPEN ATTENDANCE",
+            "OPEN APP",
+            "HIDE BUBBLE"
+        )
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Field actions")
+            .setItems(items) { _, which ->
+                when (items[which]) {
+                    "CHECK IN" -> openCamera("attendance")
+                    "CHECK OUT" -> openCamera("checkout")
+                    "DAY-PASS STATUS" -> pollNow()
+                    "OPEN JOBS" -> openPortal("m/jobs")
+                    "OPEN ATTENDANCE" -> openPortal("m/attendance")
+                    "OPEN APP" -> openApp()
+                    "HIDE BUBBLE" -> {
+                        Prefs.bubbleOn = false
+                        toast("Bubble hidden. Turn it back on from the app.")
+                        stopSelf()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .create()
+        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+        try { dialog.show() } catch (e: Exception) { toast("Cannot open dialog over other apps.") }
+    }
+
     private fun holdJob() {
         if (Prefs.jobStartedAt <= 0L) { toast("No active job to hold."); return }
         val labels = arrayOf("Waiting for spares", "Waiting for approval", "Facility limitation")
@@ -634,6 +694,18 @@ class OverlayBubbleService : Service() {
         }
     }
 
+    private fun openPortal(view: String) {
+        try {
+            startActivity(
+                Intent(this, PortalActivity::class.java)
+                    .putExtra("view", view)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            )
+        } catch (e: Exception) {
+            toast("Cannot open portal: ${e.message}")
+        }
+    }
+
     private fun submitRoamingRequest() {
         thread {
             try {
@@ -649,14 +721,18 @@ class OverlayBubbleService : Service() {
                     when {
                         resp.optBoolean("alreadyApproved") -> {
                             Prefs.transitApproved = true
+                            Prefs.transitDate = Api.istToday()
+                            if (Prefs.checkInDate.isEmpty()) Prefs.checkInDate = Api.istToday()
                             main.post { toast("Day pass already approved - tap START JOB.") }
                         }
                         resp.optBoolean("pending") -> {
                             Prefs.transitPending = true
+                            Prefs.transitDate = Api.istToday()
                             main.post { toast("Transit request already pending for today.") }
                         }
                         else -> {
                             Prefs.transitPending = true
+                            Prefs.transitDate = Api.istToday()
                             main.post { toast("Transit request submitted. Awaiting supervisor approval.") }
                         }
                     }
@@ -694,6 +770,8 @@ class OverlayBubbleService : Service() {
                 val st = Api().roamingStatus()
                 Prefs.transitApproved = st.optBoolean("approved")
                 Prefs.transitPending = st.optBoolean("pending")
+                Prefs.transitDate = Api.istToday()
+                if (Prefs.transitApproved && Prefs.checkInDate.isEmpty()) Prefs.checkInDate = Api.istToday()
                 main.post {
                     evaluate()
                     toast(if (Prefs.transitApproved) "Day pass APPROVED — tap START JOB."

@@ -39,7 +39,7 @@ onRecordAfterCreateRequest((e) => {
 
         if (action === "CheckIn") {
             user.set("check_in_at", String(rec.get("timestamp") || new Date().toISOString()));
-            user.set("check_in_proof", String(rec.get("photo_proof") || ""));
+            user.set("check_in_proof", String(rec.get("photo_proof") || rec.get("photo_url") || ""));
             user.set("check_in_session", rec.id);
             user.set("last_lat", num(rec.get("latitude")));
             user.set("last_lng", num(rec.get("longitude")));

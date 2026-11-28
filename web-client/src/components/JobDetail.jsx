@@ -24,7 +24,7 @@ function jobTone(status) {
   return 'warn';
 }
 
-export function JobDetail({ task, onClose, onEdit, onHold, checkedIn, onOpenTech, onOpenVehicle, now }) {
+export function JobDetail({ task, onClose, onEdit, onHold, checkedIn, onOpenTech, onOpenVehicle, onNewRepair, now }) {
   if (!task) return null;
   const status = String(task.status || '-');
   const tone = jobTone(status);
@@ -147,6 +147,7 @@ export function JobDetail({ task, onClose, onEdit, onHold, checkedIn, onOpenTech
       </Section>
 
       <div className="jd-actions">
+        {typeof onNewRepair === 'function' ? <Btn size="sm" variant="ghost" onClick={() => onNewRepair(task)}>New repair</Btn> : null}
         {canEdit ? <Btn size="sm" variant="ghost" onClick={() => onEdit(task)}>Edit</Btn> : null}
         {canHold ? <Btn size="sm" variant="ghost" onClick={() => onHold(task)}>Hold</Btn> : null}
         {onClose ? <Btn size="sm" variant="ghost" onClick={onClose}>Close</Btn> : null}

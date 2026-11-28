@@ -5,7 +5,7 @@
 > Update the **Change Log** and **Resume Point** on every change. Do not rely on
 > remembering a previous session or on re-reading `git diff`.
 
-Last updated: **2026-11-26**
+Last updated: **2026-11-27**
 
 ---
 
@@ -211,10 +211,19 @@ branch (it is when the branch was cut from `main`).
 | 2026-11-26 | Mobile tabs: Home first, Jobs, scan FAB, Explore replacing Alerts, Profile; rebuilt portal bundle (`index-CdyulsNI.js`) and installed fresh APK on `7d34f6121222`. | `web-client/src/mobile/MobileShell.jsx`, Android portal assets | `42f8d51` | build OK; APK installed; live `dep-dc477sgu01pc73f36mgg` |
 | 2026-11-26 | Attendance/proof fixes: date-range `getAttendance`, 30-day mobile history, hub roster with attendance badges, proof-pending card → native checkout, mandatory photo checkout for pending auto rows, bubble day-pass toast/request flow with real GPS. | `web-client/src/lib/pb.js`, `web-client/src/mobile/tree.js`, `web-client/src/mobile/Home.jsx`, `PortalActivity.kt`, `CameraOcrActivity.kt`, `OverlayBubbleService.kt` | `42f8d51` | `npm run build` OK; `gradlew assembleDebug` OK; APK installed; live `dep-dc477sgu01pc73f36mgg` |
 | 2026-11-26 | Made attendance history visible by default: mobile Attendance opens on `History 30d`; desktop Attendance has Today/7 days/30 days range selector. Rebuilt portal bundle (`index-IxRGVvck.js`) and installed fresh APK on `7d34f6121222`. | `web-client/src/mobile/tree.js`, `web-client/src/pages/Attendance.jsx`, Android portal assets | `4458721` | `npm run build` OK; `gradlew assembleDebug` OK; APK installed; live `dep-dc47kdtg1s2s73diic8g` |
+| 2026-11-27 | Added a next-session memory trigger so a future session can resume today's attendance-history context from one word. | `PROJECT_STATE.md` | uncommitted | memory trigger below |
+| 2026-11-27 | Dealer-visit SMS: GAS web app `sms` action (Twilio), backend `dealer-visits/issue-code` `sendSms`, Android manager mode `Send dealer verification SMS` wired. | `gas-drive/Code.js`, `backend/pb_hooks/api_fieldops.pb.js`, `app/android/.../Api.kt`, `MainActivity.kt` | uncommitted | `node --check` OK; `assembleDebug` OK; APK installed |]
+| 2026-11-27 | Dealer-visit SMS v2: native Android SmsManager sends 6-digit code to dealer phone; backend `/api/fieldops/dealer-visits/verify` added (manager OTP check, marks code USED). | `app/android/.../AndroidManifest.xml`, `Api.kt`, `MainActivity.kt`, `backend/pb_hooks/api_fieldops.pb.js` | uncommitted | `assembleDebug` OK; APK installed |]
+| 2026-11-27 | Full-module screen: added React error boundary in ScreenFrame so full module render errors show fallback instead of blank white screen. | `web-client/src/mobile/ScreenFrame.jsx` | uncommitted | `npm run build` OK; `assembleDebug` OK; APK installed |]
+| 2026-11-27 | Job card full view: mapped snake_case job fields (checklist/parts_used/service_notes/root_cause/resolution_notes) in `joinStatus` so admin-entered job details render in JobDetail full view. | `web-client/src/lib/pb.js` | uncommitted | `npm run build` OK; `gradlew assembleDebug` OK; APK installed |
+| 2026-11-28 | Repair workflow: added `POST /api/fieldops/repair/find-job` (resolve vehicle by vehicleId/VIN/plate + best-match open job by fault). Error boundary + job field mapping verified: `npm run build` OK; `gradlew assembleDebug` OK; APK installed. | `backend/pb_hooks/api_asset_flow.pb.js` | uncommitted | `node --check` OK; web build OK; assembleDebug OK; install OK |]
+| 2026-11-27 | Repair workflow: activated job-card -> repair-order relationship (jobCardId create/list, JobDetail `New repair`). | `web-client/src/pages/Jobs.jsx`, `web-client/src/pages/Repairs.jsx`, `web-client/src/components/JobDetail.jsx`, `backend/pb_hooks/api_asset_flow.pb.js` | uncommitted | `npm run build` OK; `assembleDebug` OK; APK installed |]
 
 ---
 
 ## 9. Resume point (next steps)
+
+If the user's first message contains **`PUNCHHISTORY`**, read §10 first, then resume from step 1.
 
 1. Log in on the device (`admin` / `admin`) and visually verify the new Home/Explore tab bar, Attendance `History 30d` default view, hub roster, proof-pending card and bubble day-pass toast flow.
 2. ~~Commit/push and trigger a Render deploy.~~ **Done** (`4458721`, live `dep-dc47kdtg1s2s73diic8g`, bundle `index-IxRGVvck.js`).
@@ -222,6 +231,37 @@ branch (it is when the branch was cut from `main`).
 4. Retire the GitHub Pages workflow; align `KEYS_AND_ACCESS.md`, `HANDOFF.md`, `NEXT_SESSION.md` to the Render-canonical setup.
 5. Confirm the Drive backup env vars are set and a keep-alive pinger is active.
 6. Real accounts vs demo logins: decide before sharing the URL widely.
+7. Job-card full view: pending confirm JobDetail renders checklist/partsUsed/serviceNotes/rootCause/resolutionNotes (joinStatus mapping added locally; retest admin job edit -> open full view); then CAPA linkage (`capa_records.job_card_id -> job_cards.id`) and deploy + smoke test.
+8. Repair workflow: activated job-card -> repair-order relationship (jobCardId accepted by repair create/list; JobDetail `New repair` wired). Next: map QEL Service HUB CSV repair rows to job cards (vehicle+fault) and deploy + smoke test.
+9. Next: wire frontend/admin `repair/find-job` usage for QEL CSV mapping -> repair order (find-job now accepts QEL-style fault fields: `fault` / `issueDescription` / `defectDescription`); then deploy + smoke test; remaining: CAPA linkage (`capa_records.job_card_id -> job_cards.id`) and final deploy.
 
 **Demo data note:** the 4 live regions now have zones (North, South×2, East).
+
+[**Dealer-visit SMS (2026-11-27):** manager sends dealer visit verification SMS from native app (mode `Send dealer verification SMS` -> issue code w/ `sendSms`). Pending: set GAS `SMS_SID`/`SMS_TOKEN`/`SMS_FROM`, real Twilio send, dealer-side code entry + verify UI.]
+
+
 If a restore reverts them, migration 140 re-derives zones from region names.
+
+---
+
+## 10. Tomorrow's memory trigger
+
+**Trigger word:** `PUNCHHISTORY`
+
+When the user says `PUNCHHISTORY`, treat it as "resume today's attendance-history work":
+
+- Canonical app: **Render** `https://fieldops-pb.onrender.com`; live deploy
+  `dep-dc47kdtg1s2s73diic8g` @ `4458721`; assets `index-BBadGAa4.css` +
+  `index-IxRGVvck.js` verified live.
+- Most recent code: mobile Attendance opens on **`History 30d`**; desktop
+  Attendance has **Today / 7 days / 30 days** range selector.
+- Attendance data: 32 live records in the last 30 days; **0 for 2026-11-26**;
+  latest rows are 2026-11-24, 2026-11-23 and 2026-11-21. No demo punches seeded.
+- APK rebuilt/installed on device `7d34f6121222`; bundled portal asset is
+  `assets/index-IxRGVvck.js`; strings `History 30d`, `30 days`,
+  `Attendance history`, `dateFrom` verified in both live and APK bundles.
+- Still pending: manual UI check with `admin` / `admin` → Explore → Attendance;
+  confirm `History 30d` rows render, plus hub roster, proof-pending card and
+  bubble day-pass flow.
+- If history still appears missing, check route child/default tab and
+  browser/WebView cache before changing code; code/data were verified present.

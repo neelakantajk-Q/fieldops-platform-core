@@ -160,13 +160,35 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
         true
     } catch (e: Exception) { false }
 
+    /* ------------------------------------------------------- durable media */
+
+    /**
+     * Upload a camera proof to Google Drive cold storage via the backend
+     * /api/fieldops/media-upload route. Render's free disk is ephemeral, so the
+     * returned URL is the durable copy stored on the record.
+     */
+    fun uploadMedia(file: File, kind: String): JSONObject {
+        val bytes = file.readBytes()
+        val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+        val body = JSONObject()
+            .put("sessionToken", Prefs.token)
+            .put("dataBase64", b64)
+            .put("kind", kind)
+            .put("filename", file.name)
+            .put("mimeType", "image/jpeg")
+        return call(Request.Builder()
+            .url(url("/api/fieldops/media-upload"))
+            .post(json(body.toString())).build())
+    }
+
     /* --------------------------------------------------------- attendance */
 
     fun postAttendance(
         action: String, lat: Double, lng: Double, accuracy: Double,
         mock: Boolean, notes: String, photoFile: File? = null,
         photoField: String = "photo_proof",
-        auto: Boolean = false, reason: String = "", source: String = "APP"
+        auto: Boolean = false, reason: String = "", source: String = "APP",
+        photoUrl: String? = null, photoFileId: String? = null
     ): JSONObject {
         val dist = GeoMath.haversineMeters(lat, lng, Prefs.hubLat, Prefs.hubLng)
         val within = Prefs.geofenceUnlimited || dist <= Prefs.hubRadius
@@ -187,6 +209,14 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
             .put("is_mock_provider", mock)
             .put("client_request_id", requestId())
         if (notes.isNotEmpty()) rec.put("notes", notes)
+        if (!photoUrl.isNullOrEmpty()) {
+            rec.put("photo_url", photoUrl)
+            rec.put("photo_provider", "drive")
+            if (action == "CheckIn") rec.put("checkin_photo_url", photoUrl)
+            if (action == "CheckOut") rec.put("checkout_photo_url", photoUrl)
+        }
+        if (!photoFileId.isNullOrEmpty()) rec.put("photo_file_id", photoFileId)
+        rec.put("source", source)
         if (auto) {
             rec.put("auto_checkout", true)
             rec.put("checkout_reason", reason)
@@ -209,7 +239,8 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
 
     /** Post a transit request via bubble or app. Day-scoped (IST). */
     fun requestTransit(
-        requestType: String, lat: Double, lng: Double, accuracy: Double, notes: String
+        requestType: String, lat: Double, lng: Double, accuracy: Double, notes: String,
+        photoUrl: String? = null, photoFileId: String? = null, purpose: String? = null
     ): JSONObject {
         val body = JSONObject()
             .put("sessionToken", Prefs.token)
@@ -218,6 +249,9 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
             .put("lng", lng)
             .put("accuracy", accuracy)
             .put("notes", notes)
+        if (!photoUrl.isNullOrEmpty()) body.put("photoUrl", photoUrl)
+        if (!photoFileId.isNullOrEmpty()) body.put("photoFileId", photoFileId)
+        if (!purpose.isNullOrEmpty()) body.put("purpose", purpose)
         return call(Request.Builder()
             .url(url("/api/fieldops/roaming-request"))
             .post(json(body.toString())).build())
@@ -326,6 +360,9 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
         val normalized = plate.uppercase().replace(Regex("[^A-Z0-9]"), "")
         if (normalized.isEmpty()) throw ApiError(400, "Plate is required to start a job.")
         val vehicle = findVehicle(normalized) ?: createVehicle(normalized, plate, plateSource)
+        val durable = try {
+            if (photoFile != null) uploadMedia(photoFile, "job-start") else null
+        } catch (e: Exception) { null }
 
         val rec = JSONObject()
             .put("company_id", Prefs.companyId)
@@ -342,6 +379,7 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
             .put("odometer_unit", "km")
             .put("client_request_id", requestId())
         odo?.trim()?.toDoubleOrNull()?.let { rec.put("start_odometer", it) }
+        durable?.optString("url")?.takeIf { it.isNotEmpty() }?.let { rec.put("start_photo_url", it) }
 
         val mp = MultipartBody.Builder().setType(MultipartBody.FORM)
         for (key in rec.keys()) mp.addFormDataPart(key, rec.optString(key))
@@ -421,6 +459,13 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
             .addFormDataPart("vehicle_released_at", isoNow())
         if (notes.isNotEmpty()) mp.addFormDataPart("service_notes", notes)
         photoFile?.let { mp.addFormDataPart("end_proof_photo", it.name, it.asRequestBody("image/jpeg".toMediaType())) }
+        try {
+            if (photoFile != null) {
+                val durable = uploadMedia(photoFile, "job-end")
+                val url = durable.optString("url")
+                if (url.isNotEmpty()) mp.addFormDataPart("end_photo_url", url)
+            }
+        } catch (e: Exception) { /* best effort; PB file remains */ }
         return call(Request.Builder()
             .url(url("/api/collections/job_cards/records/" + resolved))
             .patch(mp.build()).build())
@@ -447,10 +492,19 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
     /* -------------------------------------------------- checkout photo */
 
     /** Attach the mandatory checkout photo to an auto-checkout attendance row. */
-    fun completeCheckoutPhoto(attendanceId: String, file: File): JSONObject {
+    fun completeCheckoutPhoto(
+        attendanceId: String, file: File,
+        photoUrl: String? = null, photoFileId: String? = null
+    ): JSONObject {
         val mp = MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("checkout_photo", file.name, file.asRequestBody("image/jpeg".toMediaType()))
             .addFormDataPart("photo_pending", "false")
+        if (!photoUrl.isNullOrEmpty()) {
+            mp.addFormDataPart("photo_url", photoUrl)
+            mp.addFormDataPart("checkout_photo_url", photoUrl)
+            mp.addFormDataPart("photo_provider", "drive")
+        }
+        if (!photoFileId.isNullOrEmpty()) mp.addFormDataPart("photo_file_id", photoFileId)
         return call(Request.Builder()
             .url(url("/api/collections/attendance/records/" + attendanceId))
             .patch(mp.build()).build())
@@ -504,12 +558,36 @@ class Api(private val baseUrl: String = Prefs.baseUrl) {
         return res.optJSONArray("visits") ?: JSONArray()
     }
 
-    fun issueDealerCode(dealerId: String): JSONObject {
+    fun issueDealerCode(dealerId: String, sendSms: Boolean = false): JSONObject {
         val body = JSONObject()
             .put("sessionToken", Prefs.token)
             .put("dealerId", dealerId)
+            .put("sendSms", sendSms)
         return call(Request.Builder()
             .url(url("/api/fieldops/dealer-visits/issue-code"))
+            .post(json(body.toString())).build())
+    }
+
+    /** Manager: verify a dealer visit code (OTP) that the dealer received. */
+    fun dealerVisitVerify(dealerId: String, code: String): JSONObject {
+        val body = JSONObject()
+            .put("sessionToken", Prefs.token)
+            .put("dealerId", dealerId)
+            .put("code", code)
+        return call(Request.Builder()
+            .url(url("/api/fieldops/dealer-visits/verify"))
+            .post(json(body.toString())).build())
+    }
+
+    /** Manager: send the dealer visit verification SMS to the dealer phone. */
+    fun dealerVisitSms(dealerId: String, code: String, message: String = ""): JSONObject {
+        val body = JSONObject()
+            .put("sessionToken", Prefs.token)
+            .put("dealerId", dealerId)
+            .put("code", code)
+            .put("message", message)
+        return call(Request.Builder()
+            .url(url("/api/fieldops/dealer-visits/sms"))
             .post(json(body.toString())).build())
     }
 

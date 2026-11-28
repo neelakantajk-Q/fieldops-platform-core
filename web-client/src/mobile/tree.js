@@ -194,7 +194,11 @@ export const MODULES = [
         { label: 'Auto', value: r.auto ? 'Yes' : 'No' },
         { label: 'Mock', value: r.mock ? 'Yes' : 'No' },
         { label: 'Proof', value: r.pendingProof ? 'Pending' : (r.checkInPhoto || r.checkOutPhoto ? 'Attached' : '—') }
-      ]
+      ],
+      photos: [
+        { label: 'Check in', url: r.checkInPhoto },
+        { label: 'Check out', url: r.checkOutPhoto }
+      ].filter((p) => p.url)
     })
   },
   {

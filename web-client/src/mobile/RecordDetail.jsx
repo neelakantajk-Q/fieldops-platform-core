@@ -19,6 +19,16 @@ export function RecordDetail({ module, card, onClose, onOpenFull, children }) {
           {card.badge ? <span className={`m-chip ${card.badge.tone || ''}`}>{card.badge.label}</span> : null}
           {(card.meta || []).filter(Boolean).map((m, i) => <span key={i} className="m-chip plain">{m}</span>)}
         </div>
+        {card.photos && card.photos.length ? (
+          <div className="m-proof">
+            {card.photos.map((p, i) => (
+              <a key={i} href={p.url} target="_blank" rel="noreferrer" className="m-proof-item">
+                <img src={p.url} alt={p.label} loading="lazy" />
+                <span>{p.label}</span>
+              </a>
+            ))}
+          </div>
+        ) : null}
         {children ? children : (
           <div className="m-facts">
             {(card.facts || []).map((f, i) => (

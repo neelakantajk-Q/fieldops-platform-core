@@ -1987,7 +1987,13 @@ routerAdd("POST", "/api/fieldops/home-summary", (c) => {
             if (a === "CheckIn") lastIn = p;
             if (a === "CheckOut") lastOut = p;
         }
-        const checkedIn = !!String(user.get("check_in_at") || "");
+        const inMs = lastIn ? toMs(lastIn.get("timestamp")) : NaN;
+        const outMs = lastOut ? toMs(lastOut.get("timestamp")) : NaN;
+        // Prefer the punch timeline (covers roaming CheckIn rows created on
+        // approval); fall back to the user session marker for legacy rows.
+        const checkedIn = lastIn
+            ? (!lastOut || (isFinite(inMs) && (!isFinite(outMs) || inMs >= outMs)))
+            : !!String(user.get("check_in_at") || "");
         const breachMs = toMs(user.get("breach_started_at"));
         const graceMin = num(user.get("breach_grace_minutes")) || num(readSetting("attendance.breach_grace_minutes", "15")) || 15;
         const breachDeadline = isFinite(breachMs) ? breachMs + graceMin * 60000 : null;
@@ -2100,11 +2106,13 @@ routerAdd("POST", "/api/fieldops/home-summary", (c) => {
                 checkedIn: checkedIn,
                 lastCheckIn: lastIn ? {
                     id: lastIn.id, timestamp: str(lastIn.get("timestamp")),
-                    status: str(lastIn.get("status")), photo: str(lastIn.get("photo_proof"))
+                    status: str(lastIn.get("status")), photo: str(lastIn.get("photo_proof")),
+                    photoUrl: str(lastIn.get("photo_url") || lastIn.get("checkin_photo_url"))
                 } : null,
                 lastCheckOut: lastOut ? {
                     id: lastOut.id, timestamp: str(lastOut.get("timestamp")),
                     reason: str(lastOut.get("checkout_reason")), auto: lastOut.get("auto_checkout") === true,
+                    photoUrl: str(lastOut.get("photo_url") || lastOut.get("checkout_photo_url")),
                     shiftMinutes: num(lastOut.get("shift_minutes")), jobMinutes: num(lastOut.get("job_minutes")),
                     cardsClosed: num(lastOut.get("cards_closed")), cardsHeld: num(lastOut.get("cards_held")),
                     holdMinutes: num(lastOut.get("hold_minutes"))
@@ -2289,8 +2297,10 @@ routerAdd("POST", "/api/fieldops/dealer-visits/list", (c) => {
                 try { dealerNames[did] = dao.findRecordById("dealers", did).get("name"); }
                 catch (err) { dealerNames[did] = did; }
             }
+            let dealerPhone = "";
+            try { dealerPhone = String(dao.findRecordById("dealers", did).get("contact") || ""); } catch (err) { dealerPhone = ""; }
             return {
-                id: v.id, visitNo: v.get("visit_no"), dealerId: did, dealerName: dealerNames[did],
+                id: v.id, visitNo: v.get("visit_no"), dealerId: did, dealerName: dealerNames[did], dealerPhone: dealerPhone,
                 dealerLocationId: v.get("dealer_location_id"), managerId: v.get("manager_id"),
                 visitType: v.get("visit_type"), status: v.get("status"), mode: v.get("verification_mode"),
                 checkInAt: str(v.get("check_in_at")), checkOutAt: str(v.get("check_out_at")),
@@ -2359,15 +2369,48 @@ routerAdd("POST", "/api/fieldops/dealer-visits/issue-code", (c) => {
             codeRec.set("issued_for", user.id);
             dao.saveRecord(codeRec);
         }
+        let dealerPhone = "";
+        try {
+            const drec = dao.findRecordById("dealers", dealerId);
+            dealerPhone = String(drec.get("contact") || "").replace(/[^0-9+]/g, "");
+        } catch (err) { dealerPhone = ""; }
+        let smsSent = false;
+        let smsSid = "";
+        const wantSms = body.sendSms === true;
+        if (wantSms && dealerPhone) {
+            try {
+                const smsUrl = String($os.getenv("SMS_URL") || "").trim() ||
+                    "https://script.google.com/macros/s/AKfycbyrBPHtMXmZ3jBvJheLgI5oai4Ls1lc1a-eHr2CsIci2tI70A3-nXqVSdNMpIF0xp-03w/exec";
+                const smsToken = String($os.getenv("SMS_TOKEN") || "").trim() || "fo-drive-7Q2m9Xk4Lp8Vr3Tn6Ws1Bc5Hd0Zg";
+                const smsBody = {
+                    token: smsToken, action: "sms",
+                    to: dealerPhone,
+                    message: "FieldOps dealer visit code: " + String(codeRec.get("code") || "") + ". Enter it in the FieldOps app to verify the dealer visit."
+                };
+                const smresp = $http.send({
+                    method: "POST",
+                    url: smsUrl,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(smsBody),
+                    timeout: 60
+                });
+                let sj = smresp.json || null;
+                if (!sj) { try { sj = JSON.parse(String(smresp.raw || "")); } catch (e) { sj = null; } }
+                if (sj && sj.success) { smsSent = true; smsSid = String(sj.sid || ""); }
+            } catch (err) { smsSent = false; }
+        }
         let dealerName = dealerId;
         try { dealerName = dao.findRecordById("dealers", dealerId).get("name"); } catch (err) { /* ignore */ }
+        const dealerFullName = String(dealerName || dealerId);
         return out(200, {
             success: true,
             codeId: codeRec.id,
             code: str(codeRec.get("code")),
             qrPayload: str(codeRec.get("qr_payload")),
             expiresAt: str(codeRec.get("expires_at")),
-            dealerName: dealerName
+            dealerName: dealerFullName,
+            smsSent: smsSent,
+            smsSid: smsSid
         });
     } catch (err) {
         return out(500, { success: false, message: "issue-code failed: " + (err && err.message ? err.message : err) });
@@ -2433,5 +2476,58 @@ routerAdd("POST", "/api/fieldops/dealer-verify", (c) => {
         });
     } catch (err) {
         return out(500, { success: false, message: "dealer-verify failed: " + (err && err.message ? err.message : err) });
+    }
+});
+
+/**
+ * POST /api/fieldops/dealer-visits/verify { sessionToken, dealerId, code }
+ * Manager-side: verify the 6-digit dealer visit OTP/code that was pushed to the
+ * dealer's phone over SMS and entered by the manager. Marks the code USED.
+ */
+routerAdd("POST", "/api/fieldops/dealer-visits/verify", (c) => {
+    const info = $apis.requestInfo(c);
+    const body = info.data || {};
+    const out = (code, obj) => c.json(code, obj);
+    try {
+        let user = null;
+        const token = String(body.sessionToken || "").trim();
+        if (token) {
+            const found = $app.dao().findRecordsByFilter("users", "active_session_token = {:t}", "", 1, 0, { t: token });
+            if (found && found.length) {
+                const expiry = Number(found[0].get("session_expiry") || 0);
+                if (!(expiry > 0 && Date.now() > expiry)) user = found[0];
+            }
+        }
+        if (!user) return out(401, { success: false, code: "SESSION_INVALID", message: "Sign in again." });
+        const RANKS = { Technician: 1, Supervisor: 2, Moderator: 3, Administrator: 4, Platform: 99 };
+        if ((RANKS[String(user.get("role"))] || 0) < 2) {
+            return out(403, { success: false, code: "FORBIDDEN", message: "Supervisor role or above required." });
+        }
+        const dealerId = String(body.dealerId || "");
+        if (!dealerId) return out(400, { success: false, message: "dealerId is required." });
+        const code = String(body.code || "").trim();
+        if (!code) return out(400, { success: false, message: "code is required." });
+        const dao = $app.dao();
+        const rows = dao.findRecordsByFilter(
+            "dealer_visit_codes", "dealer_id = {:d} && code = {:c} && status = 'ACTIVE'", "", 1, 0,
+            { d: dealerId, c: code }
+        ) || [];
+        if (!rows || !rows.length) {
+            return out(404, { success: false, message: "Invalid dealer visit code.", valid: false });
+        }
+        const rec = rows[0];
+        const exp = new Date(String(rec.get("expires_at") || "").trim().replace(" ", "T")).getTime();
+        if (!isFinite(exp) || exp < Date.now()) {
+            rec.set("status", "EXPIRED");
+            dao.saveRecord(rec);
+            return out(400, { success: false, message: "Dealer visit code has expired.", valid: false });
+        }
+        rec.set("status", "USED");
+        rec.set("used_at", new Date().toISOString());
+        rec.set("used_by", user.id);
+        dao.saveRecord(rec);
+        return out(200, { success: true, valid: true, code: code, codeId: rec.id, expiresAt: String(rec.get("expires_at") || "") });
+    } catch (err) {
+        return out(500, { success: false, message: "dealer-visits verify failed: " + (err && err.message ? err.message : err) });
     }
 });

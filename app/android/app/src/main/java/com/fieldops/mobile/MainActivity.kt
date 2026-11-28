@@ -234,7 +234,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun dealerModeDialog(dealerId: String) {
-        val modes = arrayOf("Dealer app code", "Scan dealer QR", "No app (web link)", "Manual (supervisor approves)")
+        val modes = arrayOf("Dealer app code", "Scan dealer QR", "No app (web link)", "Manual (supervisor approves)", "Send dealer verification SMS")
         AlertDialog.Builder(this)
             .setTitle("Verification method")
             .setItems(modes) { _, which ->
@@ -243,6 +243,7 @@ class MainActivity : AppCompatActivity() {
                     1 -> dealerCodeDialog(dealerId, "APP_QR")
                     2 -> openDealerProof(dealerId, "", "WEB_CODE")
                     3 -> openDealerProof(dealerId, "", "MANUAL")
+                    4 -> dealerSmsDialog(dealerId)
                 }
             }
             .setNegativeButton("Cancel", null)
@@ -259,6 +260,44 @@ class MainActivity : AppCompatActivity() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun dealerSmsDialog(dealerId: String) {
+        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.SEND_SMS), 9102)
+            runOnUiThread { toast("Allow SMS permission to send the dealer verification code.") }
+            return
+        }
+        thread {
+            try {
+                val res = Api().issueDealerCode(dealerId, false)
+                val code = res.optString("code")
+                val dealers = Api().dealers()
+                var dealerPhone = ""
+                for (i in 0 until dealers.length()) {
+                    val d = dealers.getJSONObject(i)
+                    if (d.optString("id") == dealerId) {
+                        dealerPhone = d.optString("contact", d.optString("phone", ""))
+                        break
+                    }
+                }
+                val sent = sendDealerCodeSms(dealerPhone, code)
+                runOnUiThread {
+                    if (sent) toast("Dealer verification SMS sent (code " + code + ").")
+                    else toast("Dealer SMS could not be sent natively: " + dealerPhone)
+                }
+            } catch (e: Exception) {
+                runOnUiThread { toast("Dealer SMS failed: " + e.message) }
+            }
+        }
+    }
+
+    private fun sendDealerCodeSms(dealerPhone: String, code: String): Boolean {
+        if (dealerPhone.isEmpty()) return false
+        val smsManager = android.telephony.SmsManager.getDefault()
+        smsManager.sendTextMessage(dealerPhone, null, code, null, null)
+        return true
     }
 
     private fun openDealerProof(dealerId: String, code: String, mode: String) {

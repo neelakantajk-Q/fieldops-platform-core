@@ -14,12 +14,12 @@ const FLOW = {
 const PRIORITIES = ['LOW', 'NORMAL', 'HIGH', 'CRITICAL'];
 const ACTIVE = ['INTAKE', 'DIAGNOSIS', 'APPROVAL', 'IN_REPAIR', 'QA'];
 
-export default function Repairs() {
+export default function Repairs({ jobCardId }) {
   const toast = useToast();
   const [tab, setTab] = useState('active');
   const [detail, setDetail] = useState(null);
   const [creating, setCreating] = useState(false);
-  const list = useAsync(() => fieldopsPost('/api/fieldops/repair/list', {}), []);
+  const list = useAsync(() => fieldopsPost('/api/fieldops/repair/list', jobCardId ? { jobCardId } : {}), []);
 
   const items = (list.data && list.data.items) || [];
   const filtered = items.filter((r) => {
@@ -67,6 +67,7 @@ export default function Repairs() {
       ) : null}
       {creating ? (
         <RepairCreate toast={toast}
+          jobCardId={jobCardId}
           onClose={() => setCreating(false)}
           onCreated={() => { setCreating(false); list.reload(); }} />
       ) : null}
@@ -145,7 +146,7 @@ function RepairDetail({ item, toast, onClose, onChanged }) {
   );
 }
 
-function RepairCreate({ toast, onClose, onCreated }) {
+export function RepairCreate({ toast, onClose, onCreated, jobCardId }) {
   const vehicles = useAsync(() => listRecords('vehicles'), []);
   const [form, setForm] = useState({ vehicleId: '', reportedFault: '', priority: 'NORMAL', vendor: '', promisedAt: '', notes: '' });
   const [busy, setBusy] = useState(false);
@@ -153,11 +154,11 @@ function RepairCreate({ toast, onClose, onCreated }) {
   const rows = vehicles.data || [];
 
   const submit = async () => {
-    if (!form.vehicleId) { toast.push('Select a vehicle first.', 'bad'); return; }
     if (!form.reportedFault.trim()) { toast.push('Describe the reported fault.', 'bad'); return; }
+    if (!form.vehicleId && !jobCardId) { toast.push('Select a vehicle first.', 'bad'); return; }
     setBusy(true);
     try {
-      await fieldopsPost('/api/fieldops/repair/create', form);
+      await fieldopsPost('/api/fieldops/repair/create', Object.assign({}, form, jobCardId ? { jobCardId: String(jobCardId) } : {}));
       toast.push('Repair order created', 'ok');
       onCreated();
     } catch (e) { toast.push(e.message, 'bad'); }
@@ -176,6 +177,7 @@ function RepairCreate({ toast, onClose, onCreated }) {
           {rows.map((v) => <option key={v.id} value={v.id}>{v.plate_no || v.vin || v.id}</option>)}
         </select>
       </Field>
+      {jobCardId ? <Field label="Job"><div>Linked repair order for job {jobCardId}</div></Field> : null}
       <Field label="Reported fault"><textarea rows={2} value={form.reportedFault} onChange={(e) => upd('reportedFault', e.target.value)} /></Field>
       <div className="grid two">
         <Field label="Priority">

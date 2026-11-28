@@ -234,8 +234,8 @@ function joinStatus(task) {
     startOdometer: num(task.start_odometer),
     endOdometer: num(task.end_odometer),
     odometerUnit: task.odometer_unit || 'km',
-    startProof: jobProof('job_cards', recordId, task.start_proof_photo),
-    endProof: jobProof('job_cards', recordId, task.end_proof_photo),
+    startProof: task.start_photo_url || jobProof('job_cards', recordId, task.start_proof_photo),
+    endProof: task.end_photo_url || jobProof('job_cards', recordId, task.end_proof_photo),
     holdCategory: task.delay_category || '',
     holdReason: task.delay_reason || '',
     holdApprovedBy: task.delay_reason || '',
@@ -250,6 +250,11 @@ function joinStatus(task) {
     holdToStopMinutes: Number(task.hold_to_stop_minutes) || 0,
     partsExtractStatus: task.parts_extract_status || 'NONE',
     remarks: task.remarks || '',
+    checklist: task.checklist || '',
+    partsUsed: task.parts_used || task.parts_used_list || '',
+    serviceNotes: task.service_notes || task.service_notes_list || '',
+    rootCause: task.root_cause || '',
+    resolutionNotes: task.resolution_notes || task.corrective_action || '',
     complaintId: complaintRec.id || task.complaint_id || '',
     complaintStatus: complaintRec.status || '',
     complaintDescription: complaintRec.description || '',
@@ -477,14 +482,18 @@ export async function pbCall(action, payload = {}) {
       const date = payload.date || todayISO();
       const shiftDay = (days) => new Date(Date.now() + 19800000 - days * 86400000).toISOString().slice(0, 10);
       const from = payload.dateFrom || payload.from || (payload.days ? shiftDay(Number(payload.days) - 1) : date);
-      const to = payload.dateTo || payload.to || from || date;
+      const to = payload.dateTo || payload.to || date;
       // IST day grouping: the server hook stamps ist_date (YYYY-MM-DD in IST,
       // UTC+05:30) at capture time. Legacy rows without ist_date fall back to
       // the raw UTC window for that calendar date.
       let filter = `((ist_date >= "${esc(from)}" && ist_date <= "${esc(to)}") || (ist_date = "" && timestamp >= "${esc(from)} 00:00:00.000Z" && timestamp <= "${esc(to)} 23:59:59.000Z"))`;
       if (payload.userId) {
-        const u = await findUserByName(payload.userId);
-        if (u) filter += ` && user_id = "${u.id}"`;
+        const raw = String(payload.userId);
+        if (/^[a-z0-9]{15}$/.test(raw)) filter += ` && user_id = "${esc(raw)}"`;
+        else {
+          const u = await findUserByName(raw);
+          if (u) filter += ` && user_id = "${u.id}"`;
+        }
       }
       const res = await list('attendance', {
         filter, expand: 'user_id', sort: 'timestamp', perPage: Number(payload.pageSize) || 500
@@ -492,11 +501,12 @@ export async function pbCall(action, payload = {}) {
       const byUser = {};
       for (const r of (res.items || [])) {
         const expand = (r.expand && r.expand.user_id) || {};
-        const uid = expand.username || r.user_id;
+        const uid = r.user_id || expand.id || expand.username;
+        const username = expand.username || '';
         const day = r.ist_date || (r.timestamp || '').slice(0, 10);
         const key = `${uid}|${day}`;
         const row = byUser[key] || (byUser[key] = {
-          date: day, userId: uid,
+          date: day, userId: uid, username,
           userName: [expand.first_name, expand.last_name].filter(Boolean).join(' ').trim() || expand.name || expand.username || r.userName || '',
           userCode: expand.user_code || r.userCode || '', role: expand.role || r.role || '',
           hubName: r.hub_name || '', checkIn: '', checkOut: '', minutes: 0,
@@ -508,11 +518,11 @@ export async function pbCall(action, payload = {}) {
         const ts = r.timestamp ? new Date(String(r.timestamp).replace(' ', 'T')).toISOString() : '';
         if (r.action === 'CheckIn' && !row.checkIn) {
           row.checkIn = ts;
-          row.checkInPhoto = fileUrl('attendance', r.id, r.photo_proof);
+          row.checkInPhoto = r.photo_url || r.checkin_photo_url || fileUrl('attendance', r.id, r.photo_proof);
         }
         if (r.action === 'CheckOut') {
           row.checkOut = ts;
-          row.checkOutPhoto = fileUrl('attendance', r.id, r.checkout_photo || r.photo_proof);
+          row.checkOutPhoto = r.photo_url || r.checkout_photo_url || fileUrl('attendance', r.id, r.checkout_photo || r.photo_proof);
           row.auto = r.auto_checkout === true;
           row.checkoutReason = r.checkout_reason || '';
           row.shiftMinutes = Number(r.shift_minutes) || 0;

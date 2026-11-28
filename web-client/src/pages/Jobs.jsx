@@ -5,6 +5,7 @@ import {
   VoiceTextInput, VoiceTextarea, SmartFillButton
 } from '../components.jsx';
 import { JobDetail } from '../components/JobDetail.jsx';
+import { RepairCreate } from './Repairs';
 import { clientRequestId } from '../lib/utils.js';
 
 const STATUSES = ['InProgress', 'Completed', 'Delayed', 'Interrupted', 'Cancelled'];
@@ -96,6 +97,8 @@ export default function Jobs({ session, checkedIn }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [viewing, setViewing] = useState(null);
   const [type, setType] = useState('');
+  const [repairOpen, setRepairOpen] = useState(false);
+  const [repairJob, setRepairJob] = useState(null);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -259,6 +262,7 @@ export default function Jobs({ session, checkedIn }) {
             onClose={() => setSelectedId('')}
             onOpenTech={(techId) => { try { onNavigate?.('person360'); } catch (_) { } }}
             onOpenVehicle={(vehId) => { try { onNavigate?.('vehicles'); } catch (_) { } }}
+            onNewRepair={(t) => { setRepairJob(t); setRepairOpen(true); }}
           />
         </Card>
       ) : null}
@@ -272,6 +276,9 @@ export default function Jobs({ session, checkedIn }) {
         onClose={() => setModalOpen(false)}
         onSaved={() => { setModalOpen(false); reload(); }}
       />
+      {repairOpen && repairJob ? (
+        <RepairCreate jobCardId={repairJob.recordId || repairJob.id} onClose={() => setRepairOpen(false)} onCreated={() => { setRepairOpen(false); reload(); }} />
+      ) : null}
     </>
   );
 }
